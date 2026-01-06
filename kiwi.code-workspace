@@ -1,12 +1,13 @@
 {
 	"folders": [
 		{
-			"name": "backend",
-			"path": "recorder/backend"
+			"path": "."
 		},
 		{
-			"name": "kiwisdr-conf",
-			"path": "."
+			"path": "backend"
+		},
+		{
+			"path": "frontend"
 		}
 	],
 	"settings": {}

@@ -1,0 +1,13 @@
+[Unit]
+Description=Kiwi Backend
+After=network.target
+
+[Service]
+ExecStart=/usr/local/bin/kiwirecorder-backend
+WorkingDirectory=/usr/local/bin
+Restart=always
+User=root
+Environment=RUST_LOG=info
+
+[Install]
+WantedBy=multi-user.target

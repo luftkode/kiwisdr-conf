@@ -1,2 +1,2 @@
-html/*.js linguist-generated=true
+frontend/html/*.js linguist-generated=true
 *.asc linguist-generated=true

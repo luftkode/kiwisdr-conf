@@ -24,23 +24,24 @@ sign cert/renew-cert.service
 sign cert/renew-cert.timer
 sign cert/renew-cert.sh
 
-sign html/502.html
-sign html/recorder.html
-sign html/recorder.js
-sign html/filebrowser.html
-sign html/filebrowser.js
-sign html/help.html
-sign html/stylesheet.css
+sign frontend/html/502.html
+sign frontend/html/recorder.html
+sign frontend/html/recorder.js
+sign frontend/html/filebrowser.html
+sign frontend/html/filebrowser.js
+sign frontend/html/help.html
+sign frontend/html/stylesheet.css
 
 sign nginx/nginx-setup.sh
 sign nginx/nginx.conf
 
-sign recorder/kiwiclient/kiwiclient-setup.sh
-sign recorder/backend/backend-setup.sh
-sign recorder/backend/backend.service
-sign recorder/backend/build/backend.armv7
-sign recorder/backend/build/backend.aarch64
-sign recorder/backend/build/backend.x86_64
+sign kiwiclient/kiwiclient-setup.sh
+
+sign backend/backend-setup.sh
+sign backend/backend.service
+sign backend/build/backend.armv7
+sign backend/build/backend.aarch64
+sign backend/build/backend.x86_64
 
 sign setup.sh
 
