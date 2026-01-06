@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use tokio::process::{self, Child};
+use tokio::process::Child;
 use rand::{Rng, thread_rng};
 use chrono::Utc;
 use std::collections::VecDeque;
@@ -126,8 +126,26 @@ impl Job {
         self.push_log("<Exited>".to_string());
     }
 
-    pub fn get_id(&self) -> u32 {
+    pub fn mark_stoped_manualy(&mut self) {
+        self.running = false;
+        self.process = None;
+        self.push_log("<Stoped Manualy>".to_string());
+    }
+
+    pub fn take_process(&mut self) -> Option<Child> {
+        self.process.take()
+    }
+
+    pub fn id(&self) -> u32 {
         self.job_id
+    }
+
+    pub fn uid(&self) -> &str {
+        &self.job_uid
+    }
+
+    pub fn settings(&self) -> RecorderSettings {
+        self.settings
     }
 }
 

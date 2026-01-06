@@ -1,6 +1,6 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, delete, get, post, web::{self, Data, Path}};
 use serde_json::json;
-use std::{collections::{HashMap, VecDeque}, io::Result, process::Stdio, sync::Arc};
+use std::{collections::HashMap, io::Result, process::Stdio, sync::Arc};
 use tokio::{spawn, time::{Duration, sleep}, process::Child, sync::{Mutex, MutexGuard}, io::{AsyncBufReadExt, BufReader, AsyncRead}};
 use chrono::Utc;
 
@@ -196,7 +196,7 @@ async fn start_recorder(request_settings_raw: ArtixRecorderSettings, shared_hash
 
     let shared_job_clone = shared_job.clone(); 
     let job_guard: LockedJob = shared_job_clone.lock().await;
-    let job_id = job_guard.get_id();
+    let job_id = job_guard.id();
     drop(job_guard);
 
     let mut hashmap = shared_hashmap.lock().await;
@@ -225,9 +225,9 @@ async fn create_job(settings: RecorderSettings, shared_hashmap: SharedJobHashmap
 async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
     let mut job: LockedJob = shared_job.lock().await;
 
-    let settings = job.settings;
+    let settings = job.settings();
 
-    let filename_common = format!("{}_{}_Fq{}", job.job_uid, Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.frequency));
+    let filename_common = format!("{}_{}_Fq{}", job.uid(), Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.frequency));
     let filename_png = format!("{}_Zm{}", filename_common, settings.zoom.to_string());
     let filename_iq = format!("{}_Bw1d2e4", filename_common);
 
@@ -299,7 +299,7 @@ async fn stop_recorder(path: Path<u32>, shared_hashmap: ArtixRecorderHashmap) ->
     let shared_job: SharedJob = option_shared_job.unwrap();
 
     let mut job: LockedJob = shared_job.lock().await;
-    let child = job.process.take();
+    let child = job.take_process();
     drop(job);
 
     if let Some(mut child) = child {
@@ -308,11 +308,7 @@ async fn stop_recorder(path: Path<u32>, shared_hashmap: ArtixRecorderHashmap) ->
     }
 
     let mut job: LockedJob = shared_job.lock().await;
-    job.process = None;
-    job.logs.push_back(Log {
-        timestamp: Utc::now().timestamp() as u64,
-        data: "<Stoped Manualy>".to_string()
-    });
+    job.mark_stoped_manualy();
 
     let job_status = JobStatus::from(&*job);
     HttpResponse::Ok().json(job_status)
@@ -334,7 +330,7 @@ async fn remove_recorder(path: Path<u32>, shared_hashmap: ArtixRecorderHashmap) 
 
     let shared_job: SharedJob = option_shared_job.unwrap();
     let mut job: LockedJob = shared_job.lock().await;
-    let child = job.process.take();
+    let child = job.take_process();
     drop(job);
 
     if let Some(mut child) = child {
