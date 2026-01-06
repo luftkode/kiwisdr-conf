@@ -1,4 +1,4 @@
-recorder/backend/target
-recorder/backend/Cargo.lock
-/node_modules
-typescript_dist/
+backend/target
+backend/Cargo.lock
+frontend/node_modules
+frontend/ypescript_dist/

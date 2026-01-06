@@ -1,1 +1,0 @@
-./recorder/backend/build.sh
