@@ -454,8 +454,8 @@ async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
     job.process = Some(child);
     job.started_at = Some(now);
     job.next_run_start = match settings.interval {
-        Some(..) => Some(now + settings.interval.unwrap() as u64),
-        None => None,
+        Some(0) | None => None,
+        Some(interval) => Some(now + interval as u64),
     };
     job.logs.append(&mut VecDeque::from(vec![started_at_log, started_settings_log]));
 
