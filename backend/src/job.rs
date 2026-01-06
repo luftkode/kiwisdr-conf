@@ -40,15 +40,15 @@ impl Logs {
 
     pub fn get_truncaded(&self) -> Self {
         const LOG_COUNT: usize = 20;
-        
-        let mut truncaded = VecDeque::with_capacity(self.logs.len());
 
-        for log in self.logs.iter() {
-            truncaded.push_back(log.get_truncaded());
-        }
-
-        Self { 
-            logs: truncaded
+        Self {
+            logs: self.logs.iter()
+                .rev()
+                .take(LOG_COUNT)
+                .map(|log| {
+                    log.get_truncaded()
+                })
+                .collect(),
         }
     }
 
@@ -243,13 +243,7 @@ impl From<&Job> for JobStatus {
             running: value.running,
             started_at: value.started_at,
             next_run_start: value.next_run_start,
-            logs: value.logs.iter()
-                .rev() // start from the newest
-                .take(LOG_COUNT)
-                .map(|log| {
-                    log.get_truncaded()
-                })
-                .collect(),
+            logs: value.logs.get_truncaded(),
             settings: value.settings, 
         }
     }
