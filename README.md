@@ -99,7 +99,7 @@ Top bar title:
 ```
 KiwiSDR by SkyTEM Surveys ApS
 ```
-Owner info: [Copy this file](https://github.com/Ultraegern/kiwisdr-conf/blob/main/skytem-logo.html)  
+Owner info: [Copy this file](https://github.com/Ultraegern/kiwisdr-conf/blob/main/header.html)  
 Grid square: Continuous update from GPS: `true`  
 Location: Continuous update from GPS: `Hi Res`  
 Admin email:
