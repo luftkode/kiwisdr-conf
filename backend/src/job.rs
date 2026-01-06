@@ -11,7 +11,40 @@ pub struct Log {
     data: String
 }
 
-type Logs = VecDeque<Log>;
+impl Log {
+    fn get_truncaded(&self) -> Self {
+        const MAX_LOG_LENGTH: usize = 200;
+
+        let truncated_data = if self.data.len() > MAX_LOG_LENGTH {
+            format!("{}...", &self.data[..MAX_LOG_LENGTH])
+        } else {
+            self.data.clone()
+        };
+
+        Self {
+            timestamp: self.timestamp,
+            data: truncated_data,
+        }
+    }
+}
+
+pub struct Logs {
+    logs: VecDeque<Log>,
+}
+
+impl Logs {
+    pub fn get_truncaded(&self) -> Self {
+        let truncaded = VecDeque::with_capacity(self.logs.len());
+
+        for log in self.into() {
+
+        }
+
+        Self { 
+            logs: truncaded
+        }
+    }
+}
 
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 #[serde(rename_all = "lowercase")]
@@ -38,6 +71,36 @@ pub struct RecorderSettings {
     duration: u16, // 0 == inf
     #[serde(default)]
     interval: Option<u32>, // None == once
+}
+
+impl RecorderSettings {
+    pub fn check_zoom_and_freq(&self) -> Result<(), Error> {
+        if self.zoom > 31 { // Prevent bitshifting a u32 by 32 bits
+            return HttpResponse::BadRequest().json(json!({ 
+                "message": "Zoom to high",
+            }));
+        }
+
+        const MIN_FREQ: u32 = 0;
+        const MAX_FREQ: u32 = 30_000_000;
+        let zoom = self.zoom as u32;
+        let center_freq = self.frequency;
+
+        let bandwidth = (MAX_FREQ - MIN_FREQ) / (1 << zoom); // "(1 << zoom)" bitshift is same as "(2^zoom)"
+        let selection_freq_max = center_freq.saturating_add(bandwidth / 2); // Saturating add/sub to avoid integer overflow
+        let selection_freq_min = (center_freq as i64).saturating_sub((bandwidth as i64) / 2);
+
+        if selection_freq_max > MAX_FREQ {
+            return HttpResponse::BadRequest().json(json!({ 
+                "message": "The selected frequency range exceeds the maximum frequency",
+            }));
+        }
+        if selection_freq_min < MIN_FREQ as i64 {
+            return HttpResponse::BadRequest().json(json!({ 
+                "message": "The selected frequency range exceeds the minimum frequency",
+            }));
+        }
+    }
 }
 
 impl Display for RecorderSettings {
@@ -162,7 +225,6 @@ pub struct JobStatus {
 
 impl From<&Job> for JobStatus {
     fn from(value: &Job) -> Self {
-        const MAX_LOG_LENGTH: usize = 200;
         const LOG_COUNT: usize = 20;
         JobStatus {
             job_id: value.job_id,
@@ -174,16 +236,7 @@ impl From<&Job> for JobStatus {
                 .rev() // start from the newest
                 .take(LOG_COUNT)
                 .map(|log| {
-                    let truncated_data = if log.data.len() > MAX_LOG_LENGTH {
-                        format!("{}...", &log.data[..MAX_LOG_LENGTH])
-                    } else {
-                        log.data.clone()
-                    };
-
-                    Log {
-                        timestamp: log.timestamp,
-                        data: truncated_data,
-                    }
+                    log.get_truncaded()
                 })
                 .collect(),
             settings: value.settings, 
