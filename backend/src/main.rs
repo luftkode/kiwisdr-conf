@@ -1,121 +1,13 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, delete, get, post, web::{self, Data, Path}};
-use serde::{Serialize, Deserialize};
 use serde_json::json;
-use std::{collections::{HashMap, VecDeque}, fmt::{self, Display, Formatter}, io::Result, process::Stdio, sync::Arc};
+use std::{collections::{HashMap, VecDeque}, io::Result, process::Stdio, sync::Arc};
 use tokio::{spawn, time::{Duration, sleep}, process::Child, sync::{Mutex, MutexGuard}, io::{AsyncBufReadExt, BufReader, AsyncRead}};
 use chrono::Utc;
-use rand::{Rng, thread_rng};
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
-struct Log {
-    timestamp: u64, // Unix
-    data: String
-}
-
-type Logs = VecDeque<Log>;
-
-#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
-#[serde(rename_all = "lowercase")]
-enum RecordingType {
-    PNG,
-    IQ
-}
-
-impl Display for RecordingType {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            RecordingType::PNG => write!(f, "Png"),
-            RecordingType::IQ => write!(f, "Iq"),
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
-struct RecorderSettings {
-    rec_type: RecordingType,
-    frequency: u32, // Hz
-    #[serde(default)] // defaults zoom to 0 if not provided
-    zoom: u8,
-    duration: u16, // 0 == inf
-    #[serde(default)]
-    interval: Option<u32>, // None == once
-}
-
-impl Display for RecorderSettings {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Type: {}, Frequency: {} Hz, {}{}, for {} sec",
-            self.rec_type,
-            self.frequency,
-            match self.rec_type {
-                RecordingType::PNG => format!("Zoom: {}, ", self.zoom),
-                RecordingType::IQ => "".to_string(),
-            },
-            match self.interval {
-                Some(..) => format!("Every {} sec", self.interval.unwrap()),
-                None => "Once".to_string(),
-            },
-            self.duration,
-        )
-    }
-}
+//tmp
+use backend::job::*;
 
 type ArtixRecorderSettings = web::Json<RecorderSettings>;
-
-#[derive(Serialize, Clone)]
-struct JobStatus {
-    job_id: u32,
-    job_uid: String,
-    running: bool,
-    started_at: Option<u64>,
-    next_run_start: Option<u64>,
-    logs: Logs,
-    settings: RecorderSettings,
-}
-
-impl From<&Job> for JobStatus {
-    fn from(value: &Job) -> Self {
-        const MAX_LOG_LENGTH: usize = 200;
-        const LOG_COUNT: usize = 20;
-        JobStatus {
-            job_id: value.job_id,
-            job_uid: value.job_uid.clone(),
-            running: value.running,
-            started_at: value.started_at,
-            next_run_start: value.next_run_start,
-            logs: value.logs.iter()
-                .rev() // start from the newest
-                .take(LOG_COUNT)
-                .map(|log| {
-                    let truncated_data = if log.data.len() > MAX_LOG_LENGTH {
-                        format!("{}...", &log.data[..MAX_LOG_LENGTH])
-                    } else {
-                        log.data.clone()
-                    };
-
-                    Log {
-                        timestamp: log.timestamp,
-                        data: truncated_data,
-                    }
-                })
-                .collect(),
-            settings: value.settings, 
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Job {
-    job_id: u32,
-    job_uid: String,
-    running: bool,
-    process: Option<Child>,
-    started_at: Option<u64>,
-    next_run_start: Option<u64>,
-    logs: Logs,
-    settings: RecorderSettings,
-}
 
 type LockedJob<'a> = MutexGuard<'a, Job>;
 type SharedJob = Arc<Mutex<Job>>;
@@ -127,57 +19,13 @@ async fn read_output(pipe: impl AsyncRead + Unpin, job: SharedJob, pipe_tag: &st
     let mut lines = reader.lines();
     while let Ok(Some(line)) = lines.next_line().await {
         let mut state: LockedJob = job.lock().await;
-        state.logs.push_back(Log {
-            timestamp: Utc::now().timestamp() as u64, 
-            data: format!("<{}> {}", pipe_tag, line)
-        });
-        if state.logs.len() > 997 {
-            state.logs.pop_front();
-        }
+        state.push_log(format!("<{}> {}", pipe_tag, line));
 
     }
     if responsible_for_exit {
         let mut state: LockedJob = job.lock().await;
-        state.running = false;
-        state.process = None;
-        state.logs.push_back(Log {
-            timestamp: Utc::now().timestamp() as u64, 
-            data: "<Exited>".to_string()
-        });
+        state.mark_exited();
     }
-}
-
-fn to_scientific(num: u32) -> String {
-    if num == 0{
-        return "0e0".to_string();
-    }
-    let exponent = (num as f64).log10().floor() as u32;
-    let mantissa = num as f64 / 10f64.powi(exponent as i32);
-    
-    let mantissa_str = format!("{:.3}", mantissa)
-        .trim_end_matches('0')
-        .trim_end_matches('.')
-        .replace('.', "d");
-
-    return format!("{}e{}", mantissa_str, exponent);
-}
-
-fn generate_uid() -> String {
-    const LENGTH: usize = 9;
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let mut rng = thread_rng();
-
-    (0..LENGTH)
-        .map(|i| {
-            let idx = rng.gen_range(0..CHARSET.len());
-            let char_val = CHARSET[idx] as char;
-            if i > 0 && (i + 1) % 5 == 0 {
-                '-'
-            } else {
-                char_val
-            }
-        })
-        .collect::<String>()
 }
 
 #[actix_web::main]
@@ -213,7 +61,6 @@ async fn job_scheduler(shared_hashmap: SharedJobHashmap) {
     println!("Job Scheduler Started Successfully");
     const CHECK_INTERVAL: Duration = Duration::from_secs(1);
     loop {
-        let now = Utc::now().timestamp() as u64;
         let mut jobs_to_start: Vec<SharedJob> = Vec::new();
         let shared_jobs: Vec<SharedJob> = {
             let hashmap = shared_hashmap.lock().await;
@@ -223,9 +70,7 @@ async fn job_scheduler(shared_hashmap: SharedJobHashmap) {
         for shared_job in shared_jobs {
             let job: LockedJob = shared_job.lock().await;
             
-            if !job.running 
-                    && job.next_run_start.unwrap_or(0) <= now 
-                    && job.process.is_none(){
+            if !job.is_waiting_to_start() {
                 
                 jobs_to_start.push(shared_job.clone());
             }
@@ -351,7 +196,7 @@ async fn start_recorder(request_settings_raw: ArtixRecorderSettings, shared_hash
 
     let shared_job_clone = shared_job.clone(); 
     let job_guard: LockedJob = shared_job_clone.lock().await;
-    let job_id = job_guard.job_id;
+    let job_id = job_guard.get_id();
     drop(job_guard);
 
     let mut hashmap = shared_hashmap.lock().await;
@@ -370,16 +215,7 @@ async fn create_job(settings: RecorderSettings, shared_hashmap: SharedJobHashmap
         .expect("Job ID space exhausted");
     drop(hashmap);
 
-    let job = Job {
-        job_id: job_id,
-        job_uid: generate_uid(),
-        running: true,
-        process: None,
-        started_at: None,
-        next_run_start: None,
-        logs: VecDeque::new(),
-        settings: settings,
-    };
+    let job = Job::new(job_id, settings);
 
     let shared_job: SharedJob = Arc::new(Mutex::new(job));
 
@@ -440,24 +276,8 @@ async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
        tokio::spawn(read_output(stderr, shared_job.clone(), "STDERR", false));
     }
 
-    let now = Utc::now().timestamp() as u64;
-    let started_at_log = Log {
-        timestamp: now,
-        data: "<Started>".to_string()
-    };
-    let started_settings_log = Log {
-        timestamp: now,
-        data: format!("<Settings>  {}", settings)
-    };
-    
-    job.running = true;
-    job.process = Some(child);
-    job.started_at = Some(now);
-    job.next_run_start = match settings.interval {
-        Some(0) | None => None,
-        Some(interval) => Some(now + interval as u64),
-    };
-    job.logs.append(&mut VecDeque::from(vec![started_at_log, started_settings_log]));
+       
+    job.mark_started(child, settings);
 
     Ok(())
 }
