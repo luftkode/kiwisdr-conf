@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use tokio::process::Child;
 use rand::{Rng, thread_rng};
 use chrono::Utc;
-use std::collections::VecDeque;
+use std::collections::{VecDeque, vec_deque};
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -28,20 +28,37 @@ impl Log {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Logs {
     logs: VecDeque<Log>,
 }
 
 impl Logs {
+    pub fn new(data: VecDeque<Log>) -> Self {
+        Logs { logs: data }
+    }
+
     pub fn get_truncaded(&self) -> Self {
-        let truncaded = VecDeque::with_capacity(self.logs.len());
+        const LOG_COUNT: usize = 20;
+        
+        let mut truncaded = VecDeque::with_capacity(self.logs.len());
 
-        for log in self.into() {
-
+        for log in self.logs.iter() {
+            truncaded.push_back(log.get_truncaded());
         }
 
         Self { 
             logs: truncaded
+        }
+    }
+
+    pub fn push(&mut self, data: Log) {
+        const MAX_LOG_COUNT: usize = 999;
+
+        self.logs.push_back(data);
+
+        if self.logs.len() > MAX_LOG_COUNT {
+            self.logs.pop_front();
         }
     }
 }
@@ -144,7 +161,7 @@ impl Job {
             process: None,
             started_at: None,
             next_run_start: None,
-            logs: VecDeque::new(),
+            logs: Logs::new(VecDeque::new()),
             settings: settings,
         }
     }
@@ -158,15 +175,10 @@ impl Job {
     }
 
     pub fn push_log(&mut self, data: String) {
-        const MAX_LOG_COUNT: usize = 999;
-
-        self.logs.push_back(Log {
+        self.logs.push(Log {
             timestamp: Utc::now().timestamp() as u64, 
             data: data,
         });
-        if self.logs.len() > MAX_LOG_COUNT {
-            self.logs.pop_front();
-        }
     }
 
     pub fn mark_started(&mut self, process: Child, settings: RecorderSettings) {
@@ -225,7 +237,6 @@ pub struct JobStatus {
 
 impl From<&Job> for JobStatus {
     fn from(value: &Job) -> Self {
-        const LOG_COUNT: usize = 20;
         JobStatus {
             job_id: value.job_id,
             job_uid: value.job_uid.clone(),
