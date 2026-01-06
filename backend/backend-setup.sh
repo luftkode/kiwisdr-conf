@@ -41,13 +41,13 @@ fi
 
 echo "⬜ Verifying and installing api..."
 verify_signature "$BINARY_PATH"
-sudo install -m 755 "$BINARY_PATH" /usr/local/bin/kiwirecorder-backend
+sudo install -m 755 "$BINARY_PATH" /usr/local/bin/kiwibackend
 
 # Ensure data directories exist
 sudo mkdir -p /var/recorder/recorded-files/gnss_pos/
 
 SERVICE_SRC="$DIR/backend/backend.service"
-SERVICE_DEST="/etc/systemd/system/kiwirecorder-backend.service"
+SERVICE_DEST="/etc/systemd/system/kiwibackend.service"
 
 echo "⬜ Setting up systemd service..."
 verify_signature "$SERVICE_SRC"
@@ -58,14 +58,14 @@ sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 
 # Stop only if running
-if systemctl is-active --quiet kiwirecorder-backend.service; then
-    sudo systemctl stop kiwirecorder-backend.service
+if systemctl is-active --quiet kiwibackend.service; then
+    sudo systemctl stop kiwibackend.service
 fi
 
-sudo systemctl enable kiwirecorder-backend.service
-sudo systemctl restart kiwirecorder-backend.service
+sudo systemctl enable kiwibackend.service
+sudo systemctl restart kiwibackend.service
 
-systemctl status kiwirecorder-backend.service
+systemctl status kiwibackend.service
 
 echo "✅ Api setup complete."
-echo "ℹ️ To view logs: journalctl -u kiwirecorder-backend.service -f"
+echo "ℹ️ To view logs: journalctl -u kiwibackend.service -f"

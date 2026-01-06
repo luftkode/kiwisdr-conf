@@ -1,5 +1,5 @@
 [Unit]
-Description=KiwiRecorder Backend
+Description=Kiwi Backend
 After=network.target
 
 [Service]
