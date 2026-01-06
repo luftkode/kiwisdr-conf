@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use tokio::process::Child;
 use rand::{Rng, thread_rng};
 use chrono::Utc;
-use std::collections::{VecDeque, vec_deque};
+use std::collections::VecDeque;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -79,6 +79,25 @@ impl Display for RecordingType {
     }
 }
 
+#[derive(Debug)]
+pub enum RecorderSettingsError {
+    ZoomTooHigh,
+    FrequencyAboveMax,
+    FrequencyBelowMin,
+}
+
+impl std::fmt::Display for RecorderSettingsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecorderSettingsError::ZoomTooHigh =>
+                write!(f, "Zoom too high"),
+            RecorderSettingsError::FrequencyAboveMax =>
+                write!(f, "The selected frequency range exceeds the maximum frequency"),
+            RecorderSettingsError::FrequencyBelowMin =>
+                write!(f, "The selected frequency range exceeds the minimum frequency"),
+        }
+    }
+}
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub struct RecorderSettings {
     rec_type: RecordingType,
@@ -90,16 +109,16 @@ pub struct RecorderSettings {
     interval: Option<u32>, // None == once
 }
 
+
 impl RecorderSettings {
-    pub fn check_zoom_and_freq(&self) -> Result<(), Error> {
+    pub fn validate(&self) -> Result<(), RecorderSettingsError> {
         if self.zoom > 31 { // Prevent bitshifting a u32 by 32 bits
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "Zoom to high",
-            }));
+            return Err(RecorderSettingsError::ZoomTooHigh);
         }
 
         const MIN_FREQ: u32 = 0;
         const MAX_FREQ: u32 = 30_000_000;
+
         let zoom = self.zoom as u32;
         let center_freq = self.frequency;
 
@@ -108,15 +127,33 @@ impl RecorderSettings {
         let selection_freq_min = (center_freq as i64).saturating_sub((bandwidth as i64) / 2);
 
         if selection_freq_max > MAX_FREQ {
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "The selected frequency range exceeds the maximum frequency",
-            }));
+            return Err(RecorderSettingsError::FrequencyAboveMax);
         }
         if selection_freq_min < MIN_FREQ as i64 {
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "The selected frequency range exceeds the minimum frequency",
-            }));
+            return Err(RecorderSettingsError::FrequencyBelowMin);
         }
+
+        Ok(())
+    }
+
+    pub fn rec_type(&self) -> RecordingType {
+        self.rec_type
+    }
+
+    pub fn freq(&self) -> u32 {
+        self.frequency
+    }
+
+    pub fn zoom(&self) -> u8 {
+        self.zoom
+    }
+    
+    pub fn duration(&self) -> u16 {
+        self.duration
+    }
+    
+    pub fn interval(&self) -> Option<u32> {
+        self.interval
     }
 }
 

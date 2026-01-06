@@ -149,30 +149,11 @@ async fn start_recorder(request_settings_raw: ArtixRecorderSettings, shared_hash
             }));
         }
     }
-    { // Check that zoom and freq are valid
-        if settings.zoom > 31 { // Prevent bitshifting a u32 by 32 bits
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "Zoom to high",
-            }));
-        }
-
-        const MIN_FREQ: u32 = 0;
-        const MAX_FREQ: u32 = 30_000_000;
-        let zoom = settings.zoom as u32;
-        let center_freq = settings.frequency;
-
-        let bandwidth = (MAX_FREQ - MIN_FREQ) / (1 << zoom); // "(1 << zoom)" bitshift is same as "(2^zoom)"
-        let selection_freq_max = center_freq.saturating_add(bandwidth / 2); // Saturating add/sub to avoid integer overflow
-        let selection_freq_min = (center_freq as i64).saturating_sub((bandwidth as i64) / 2);
-
-        if selection_freq_max > MAX_FREQ {
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "The selected frequency range exceeds the maximum frequency",
-            }));
-        }
-        if selection_freq_min < MIN_FREQ as i64 {
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "The selected frequency range exceeds the minimum frequency",
+    match settings.validate() {
+        Ok(()) => { }
+        Err(err) => {
+            return HttpResponse::BadRequest().json(json!({
+                "message": err.to_string()
             }));
         }
     }
@@ -227,15 +208,15 @@ async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
 
     let settings = job.settings();
 
-    let filename_common = format!("{}_{}_Fq{}", job.uid(), Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.frequency));
-    let filename_png = format!("{}_Zm{}", filename_common, settings.zoom.to_string());
+    let filename_common = format!("{}_{}_Fq{}", job.uid(), Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.freq()));
+    let filename_png = format!("{}_Zm{}", filename_common, settings.zoom().to_string());
     let filename_iq = format!("{}_Bw1d2e4", filename_common);
 
-    let mut args: Vec<String>  = match settings.rec_type {
+    let mut args: Vec<String>  = match settings.rec_type() {
         RecordingType::PNG => vec![
             "-s".to_string(), "127.0.0.1".to_string(),
             "-p".to_string(), "8073".to_string(),
-            format!("--freq={:#.3}", (settings.frequency as f64 / 1000.0)),
+            format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
             "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
             "--filename=KiwiRec".to_string(),
             format!("--station={}", filename_png),
@@ -244,11 +225,11 @@ async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
             "--wf-png".to_string(), 
             "--speed=4".to_string(), 
             "--modulation=am".to_string(), 
-            format!("--zoom={}", settings.zoom.to_string())],
+            format!("--zoom={}", settings.zoom().to_string())],
         RecordingType::IQ => vec![
             "-s".to_string(), "127.0.0.1".to_string(),
             "-p".to_string(), "8073".to_string(),
-            format!("--freq={:#.3}", (settings.frequency as f64 / 1000.0)),
+            format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
             "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
             "--filename=KiwiRec".to_string(),
             format!("--station={}", filename_iq),
@@ -257,8 +238,8 @@ async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
             "--modulation=iq".to_string()]
     };
 
-    if settings.duration != 0 {
-        args.push(format!("--time-limit={}", settings.duration));
+    if settings.duration() != 0 {
+        args.push(format!("--time-limit={}", settings.duration()));
     }
 
     let mut child: Child = tokio::process::Command::new("python3")
