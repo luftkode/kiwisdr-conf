@@ -60,14 +60,14 @@ echo "ℹ️ To view certificate renewal logs: journalctl -u proxy-cert-renew.se
 
 # Configure web files
 echo "⬜ Configuring web files"
-verify_signature $DIR/html/stylesheet.css && sudo cp $DIR/html/stylesheet.css /var/www/html/stylesheet.css
-verify_signature $DIR/html/502.html && sudo cp $DIR/html/502.html /var/www/html/502.html
-verify_signature $DIR/html/recorder.html && sudo cp $DIR/html/recorder.html /var/www/html/recorder.html
-verify_signature $DIR/html/recorder.js && sudo cp $DIR/html/recorder.js /var/www/html/recorder.js
-verify_signature $DIR/html/help.html && sudo cp $DIR/html/help.html /var/www/html/help.html
-verify_signature $DIR/html/filebrowser.html && sudo cp $DIR/html/filebrowser.html /var/www/html/filebrowser.html
-verify_signature $DIR/html/filebrowser.js && sudo cp $DIR/html/filebrowser.js /var/www/html/filebrowser.js
-sudo mkdir -p /var/www/html/media/ && sudo cp -r $DIR/html/media/* /var/www/html/media/
+verify_signature $DIR/frontend/html/stylesheet.css && sudo cp $DIR/frontend/html/stylesheet.css /var/www/html/stylesheet.css
+verify_signature $DIR/frontend/html/502.html && sudo cp $DIR/frontend/html/502.html /var/www/html/502.html
+verify_signature $DIR/frontend/html/recorder.html && sudo cp $DIR/frontend/html/recorder.html /var/www/html/recorder.html
+verify_signature $DIR/frontend/html/recorder.js && sudo cp $DIR/frontend/html/recorder.js /var/www/html/recorder.js
+verify_signature $DIR/frontend/html/help.html && sudo cp $DIR/frontend/html/help.html /var/www/html/help.html
+verify_signature $DIR/frontend/html/filebrowser.html && sudo cp $DIR/frontend/html/filebrowser.html /var/www/html/filebrowser.html
+verify_signature $DIR/frontend/html/filebrowser.js && sudo cp $DIR/frontend/html/filebrowser.js /var/www/html/filebrowser.js
+sudo mkdir -p /var/www/html/media/ && sudo cp -r $DIR/frontend/html/media/* /var/www/html/media/
 echo "✅ Web files are configured."
 
 # Configure Nginx

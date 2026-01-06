@@ -1,5 +1,5 @@
 npm run release
 
-./sign.sh
+../sign.sh
 
 sleep 5

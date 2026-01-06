@@ -27,7 +27,7 @@ case "$ARCH" in
         ;;
 esac
 
-BUILD_DIR="$DIR/recorder/backend/build"
+BUILD_DIR="$DIR/backend/build"
 BINARY_PATH="$BUILD_DIR/backend${SUFFIX}"
 
 # Verify binary exists
@@ -46,7 +46,7 @@ sudo install -m 755 "$BINARY_PATH" /usr/local/bin/kiwirecorder-backend
 # Ensure data directories exist
 sudo mkdir -p /var/recorder/recorded-files/gnss_pos/
 
-SERVICE_SRC="$DIR/recorder/backend/backend.service"
+SERVICE_SRC="$DIR/backend/backend.service"
 SERVICE_DEST="/etc/systemd/system/kiwirecorder-backend.service"
 
 echo "⬜ Setting up systemd service..."

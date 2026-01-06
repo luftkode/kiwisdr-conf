@@ -78,6 +78,6 @@ done
 
 echo "✅ All builds completed successfully!"
 echo "ℹ️ Now signing binaries"
-cd "$BUILD_DIR/../../.."
+cd "$BUILD_DIR/../.."
 ./sign.sh
 echo "✅ Signing completed successfully!"
