@@ -42,9 +42,10 @@ async fn recorder_status_all(state: web::Data<AppState>) -> impl Responder {
 async fn recorder_status_one(path: Path<u32>, state: web::Data<AppState>) -> impl Responder {
     let job_id = path.into_inner();
 
-    let hashmap = state.jobs.lock().await;
-    let shared_job = (hashmap.get(&job_id)).cloned();
-    drop(hashmap);
+    let shared_job = { 
+        let hashmap = state.jobs.lock().await;
+        (hashmap.get(&job_id)).cloned()
+    };
 
     if shared_job.is_none() {
         return HttpResponse::BadRequest().json(json!({
