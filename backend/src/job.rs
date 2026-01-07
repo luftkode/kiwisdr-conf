@@ -149,6 +149,55 @@ impl RecorderSettings {
         Ok(())
     }
 
+    fn get_filename(&self, uid: &str) -> String {
+        let filename_common = format!(
+            "{}_{}_Fq{}", 
+            uid, 
+            Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC"), 
+            to_scientific(self.frequency)
+        );
+        
+        match self.rec_type {
+            RecordingType::IQ => 
+                format!("{}_Bw1d2e4", filename_common),
+            RecordingType::PNG =>
+                format!("{}_Zm{}", filename_common, self.zoom),
+        }            
+    }
+
+    pub fn as_args(&self, uid: &str) -> Vec<String> {
+        let mut args: Vec<String> = vec![
+            "-s".into(), "127.0.0.1".into(),
+            "-p".into(), "8073".into(),
+            format!("--freq={:#.3}", (self.frequency as f64 / 1000.0)),
+            "-d".into(), "/var/recorder/recorded-files/".into(),
+            "--filename=KiwiRec".into(),
+            format!("--station={}", self.get_filename(uid)),
+        ];
+
+        match self.rec_type {
+            RecordingType::PNG => 
+                args.extend([
+                    "--wf".into(), 
+                    "--wf-png".into(), 
+                    "--speed=4".into(), 
+                    "--modulation=am".into(), 
+                    format!("--zoom={}", self.zoom)
+                ]),
+            RecordingType::IQ => 
+                args.extend([
+                    "--kiwi-wav".into(), 
+                    "--modulation=iq".into()
+                ]),
+        };
+
+        if self.duration != 0 {
+            args.push(format!("--time-limit={}", self.duration));
+        };
+
+        args
+    }
+
     pub fn rec_type(&self) -> RecordingType {
         self.rec_type
     }
@@ -215,7 +264,7 @@ impl Job {
         Self {
             job_id: job_id,
             job_uid: generate_uid(),
-            running: false,
+            status: JobStatus::Idle,
             process: None,
             started_at: None,
             next_run_start: None,
@@ -227,7 +276,7 @@ impl Job {
     pub fn is_waiting_to_start(&self) -> bool {
         let now = Utc::now().timestamp() as u64;
 
-        !self.running 
+        self.status == JobStatus::Idle
         && self.next_run_start.unwrap_or(0) <= now 
         && self.process.is_none()
     }
@@ -259,46 +308,12 @@ impl Job {
         let mut job = shared_job.lock().await;
         job.mark_starting()?;
         let uid = job.job_uid.clone();
-        let settings = job.settings;
+        let settings = job.settings.clone();
         drop(job);
-
-        let filename_common = format!("{}_{}_Fq{}", uid, Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.freq()));
-        let filename_png = format!("{}_Zm{}", filename_common, settings.zoom());
-        let filename_iq = format!("{}_Bw1d2e4", filename_common);
-
-        let mut args: Vec<String>  = match settings.rec_type() {
-            RecordingType::PNG => vec![
-                "-s".to_string(), "127.0.0.1".to_string(),
-                "-p".to_string(), "8073".to_string(),
-                format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
-                "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
-                "--filename=KiwiRec".to_string(),
-                format!("--station={}", filename_png),
-
-                "--wf".to_string(), 
-                "--wf-png".to_string(), 
-                "--speed=4".to_string(), 
-                "--modulation=am".to_string(), 
-                format!("--zoom={}", settings.zoom().to_string())],
-            RecordingType::IQ => vec![
-                "-s".to_string(), "127.0.0.1".to_string(),
-                "-p".to_string(), "8073".to_string(),
-                format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
-                "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
-                "--filename=KiwiRec".to_string(),
-                format!("--station={}", filename_iq),
-
-                "--kiwi-wav".to_string(), 
-                "--modulation=iq".to_string()]
-        };
-
-        if settings.duration() != 0 {
-            args.push(format!("--time-limit={}", settings.duration()));
-        }
 
         let mut child: Child = tokio::process::Command::new("python3")
             .arg("kiwirecorder.py")
-            .args(args)
+            .args(settings.as_args(&uid))
             .current_dir("/usr/local/src/kiwiclient/")
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
