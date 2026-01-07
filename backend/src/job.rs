@@ -86,8 +86,8 @@ pub enum RecorderSettingsError {
     FrequencyBelowMin,
 }
 
-impl std::fmt::Display for RecorderSettingsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for RecorderSettingsError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             RecorderSettingsError::ZoomTooHigh =>
                 write!(f, "Zoom too high"),
@@ -98,6 +98,7 @@ impl std::fmt::Display for RecorderSettingsError {
         }
     }
 }
+
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 pub struct RecorderSettings {
     rec_type: RecordingType,
@@ -108,7 +109,6 @@ pub struct RecorderSettings {
     #[serde(default)]
     interval: Option<u32>, // None == once
 }
-
 
 impl RecorderSettings {
     pub fn validate(&self) -> Result<(), RecorderSettingsError> {
