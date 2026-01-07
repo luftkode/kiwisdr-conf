@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, delete, get, post, web::{self, Path}};
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use serde_json::json;
 
 use crate::job::*;
@@ -100,30 +100,16 @@ async fn stop_recorder(path: web::Path<u32>, state: web::Data<AppState>) -> Resu
 }
 
 #[delete("/api/recorder/{job_id}")]
-async fn remove_recorder(path: Path<u32>, state: web::Data<AppState>) -> impl Responder {
+async fn remove_recorder(path: web::Path<u32>, state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
     let job_id = path.into_inner();
 
-    let mut hashmap = state.jobs.lock().await;
-    let option_shared_job = hashmap.remove(&job_id);
-    drop(hashmap);
-
-    if option_shared_job.is_none() {
-        return HttpResponse::BadRequest().json(json!({
-            "message": "Job not found: job_id not valid"
-        }));
+    let shared_job = {
+        let mut map = state.jobs.lock().await;
+        map.remove(&job_id)
     }
-    let shared_job = option_shared_job.unwrap();
+    .ok_or(ApiError::JobNotFound)?;
 
-    match Job::stop(shared_job.clone()).await {
-        Ok(()) => {},
-        Err(err) => {
-            return HttpResponse::InternalServerError().json(json!({
-                "message": err.to_string()
-            }));
-        }
-    }
-    
-    HttpResponse::Ok().json(json!({
-        "message": "Recorder deleted successfully",
-    }))
+    Job::stop(shared_job.clone()).await?;
+
+    Ok(HttpResponse::Ok().json(json!({ "message": "Recorder deleted successfully" })))
 }
