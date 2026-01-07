@@ -5,13 +5,9 @@ use tokio::{spawn, time::{Duration, sleep}, sync::{Mutex, MutexGuard}};
 
 //JobStatus
 use backend::job::*;
+use backend::state::*;
 
 type ArtixRecorderSettings = web::Json<RecorderSettings>;
-
-type LockedJob<'a> = MutexGuard<'a, Job>;
-type SharedJob = Arc<Mutex<Job>>;
-type SharedJobHashmap =  Arc<Mutex<HashMap<u32, SharedJob>>>;
-type ArtixRecorderHashmap = web::Data<SharedJobHashmap>;    
 
 #[actix_web::main]
 async fn main() -> Result<()> {
