@@ -1,7 +1,5 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, delete, get, post, web::{self, Data, Path}};
+use actix_web::{HttpResponse, Responder, delete, get, post, web::{self, Path}};
 use serde_json::json;
-use std::{collections::HashMap, io::Result, sync::Arc};
-use tokio::{spawn, time::{Duration, sleep}, sync::{Mutex, MutexGuard}};
 
 use crate::job::*;
 use crate::state::*;

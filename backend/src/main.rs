@@ -1,11 +1,10 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, delete, get, post, web::{self, Data, Path}};
-use serde_json::json;
-use std::{collections::HashMap, io::Result, sync::Arc};
-use tokio::{spawn, time::{Duration, sleep}, sync::{Mutex, MutexGuard}};
+use actix_web::{App, HttpServer, web};
+use std::io::Result;
+use tokio::{spawn, time::{Duration, sleep}};
 
 use backend::job::*;
 use backend::state::*;
-use backend::api::*;
+use backend::api;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
@@ -33,12 +32,12 @@ async fn job_scheduler(state: AppState) {
     loop {
         let mut jobs_to_start: Vec<SharedJob> = Vec::new();
         let shared_jobs: Vec<SharedJob> = {
-            let hashmap = shared_hashmap.lock().await;
+            let hashmap = state.jobs.lock().await;
             hashmap.values().cloned().collect()
         };
 
         for shared_job in shared_jobs {
-            let job: LockedJob = shared_job.lock().await;
+            let job = shared_job.lock().await;
             
             if job.is_waiting_to_start() {
                 
