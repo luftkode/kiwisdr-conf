@@ -83,31 +83,20 @@ async fn start_recorder(payload: web::Json<RecorderSettings>, state: web::Data<A
 }
 
 #[post("/api/recorder/stop/{job_id}")]
-async fn stop_recorder(path: Path<u32>, state: web::Data<AppState>) -> impl Responder {
+async fn stop_recorder(path: web::Path<u32>, state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
     let job_id = path.into_inner();
 
-    let hashmap = state.jobs.lock().await;
-    let option_shared_job = (hashmap.get(&job_id)).cloned();
-    drop(hashmap);
-
-    if option_shared_job.is_none() {
-        return HttpResponse::BadRequest().json(json!({
-            "message": "Job not found: job_id not valid"
-        }));
+    let shared_job = {
+        let map = state.jobs.lock().await;
+        map.get(&job_id).cloned()
     }
-    let shared_job = option_shared_job.unwrap();
+    .ok_or(ApiError::JobNotFound)?;
 
-    match Job::stop(shared_job.clone()).await {
-        Ok(()) => {},
-        Err(err) => {
-            return HttpResponse::InternalServerError().json(json!({
-                "message": err.to_string()
-            }));
-        }
-    }
+    Job::stop(shared_job.clone()).await?;
 
-    let job_info = JobInfo::from(&*shared_job.clone().lock().await);
-    HttpResponse::Ok().json(job_info)
+    let job_info = JobInfo::from(&*shared_job.lock().await);
+    
+    Ok(HttpResponse::Ok().json(job_info))
 }
 
 #[delete("/api/recorder/{job_id}")]
