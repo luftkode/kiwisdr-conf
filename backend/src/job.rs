@@ -288,10 +288,6 @@ impl Job {
         });
     }
 
-    pub fn take_process(&mut self) -> Option<Child> {
-        self.process.take()
-    }
-
     pub fn id(&self) -> u32 {
         self.job_id
     }
@@ -333,7 +329,20 @@ impl Job {
         Ok(())
     }
 
-    pub async fn stop(&mut self) -> io::Result<()> {
+    pub async fn stop(shared_job: Arc<Mutex<Job>>) -> io::Result<()> {
+        let mut job = shared_job.lock().await;
+        job.mark_stopping()?;
+        let child = job.process.take();
+        drop(job);
+
+        if let Some(mut child) = child {
+            child.kill().await?;
+            let _ = child.wait().await?;
+        }
+
+        let mut job = shared_job.lock().await;
+        job.mark_stopped_manually();
+
 
         Ok(())
     }
@@ -358,7 +367,7 @@ impl Job {
         if self.status != JobStatus::Idle {
             return Err(io::Error::new(
                 io::ErrorKind::Other,
-                "job not idle",
+                "Job not idle",
             ));
         }
 
@@ -380,19 +389,36 @@ impl Job {
         self.push_log("<Started>".to_string());
         self.push_log(format!("<Settings>  {}", self.settings))
     }
+
+    fn mark_stopping(&mut self) -> io::Result<()> {
+        if self.status != JobStatus::Running {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Job is not running",
+            ));
+        }
+
+        self.status = JobStatus::Stopping;
+        Ok(())
+    }
     
     fn mark_exited(&mut self) {
-        debug_assert!(self.status == JobStatus::Running);
+        debug_assert!(
+            self.status == JobStatus::Running || self.status == JobStatus::Stopping,
+            "mark_exited called, but job status was {:?}", self.status
+        );
         self.status = JobStatus::Idle;
         self.process = None;
         self.push_log("<Exited>".to_string());
     }
 
     fn mark_stopped_manually(&mut self) {
-        debug_assert!(self.status == JobStatus::Running);
+        debug_assert!(self.status == JobStatus::Stopping, 
+            "mark_stopped_manually called, but job status was {:?}", self.status
+        );
         self.status = JobStatus::Idle;
         self.process = None;
-        self.push_log("<Stoped Manually>".to_string());
+        self.push_log("<Stopped Manually>".to_string());
     }
 }
 
