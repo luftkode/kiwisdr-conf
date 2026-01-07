@@ -15,14 +15,14 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
 }
 
 #[get("/api/")]
-async fn status() -> impl Responder {
-    HttpResponse::Ok().body(
+async fn status() -> Result<impl Responder, ApiError> {
+    Ok(HttpResponse::Ok().body(
         "Online"
-    )
+    ))
 }
 
 #[get("/api/recorder/status")]
-async fn recorder_status_all(state: web::Data<AppState>) -> impl Responder {
+async fn recorder_status_all(state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
     let jobs = {
         let map = state.jobs.lock().await;
         map.values().cloned().collect::<Vec<_>>()
@@ -34,7 +34,7 @@ async fn recorder_status_all(state: web::Data<AppState>) -> impl Responder {
         job_infos.push(JobInfo::from(&*job));
     }
 
-    HttpResponse::Ok().json(job_infos)
+    Ok(HttpResponse::Ok().json(job_infos))
 }
 
 #[get("/api/recorder/status/{job_id}")]
