@@ -14,20 +14,6 @@ type SharedJob = Arc<Mutex<Job>>;
 type SharedJobHashmap =  Arc<Mutex<HashMap<u32, SharedJob>>>;
 type ArtixRecorderHashmap = web::Data<SharedJobHashmap>;    
 
-async fn read_output(pipe: impl AsyncRead + Unpin, job: SharedJob, pipe_tag: &str, responsible_for_exit: bool) {
-    let reader = BufReader::new(pipe);
-    let mut lines = reader.lines();
-    while let Ok(Some(line)) = lines.next_line().await {
-        let mut state: LockedJob = job.lock().await;
-        state.push_log(format!("<{}> {}", pipe_tag, line));
-
-    }
-    if responsible_for_exit {
-        let mut state: LockedJob = job.lock().await;
-        state.mark_exited();
-    }
-}
-
 #[actix_web::main]
 async fn main() -> Result<()> {
     let port: u16 = 5004;
@@ -70,7 +56,7 @@ async fn job_scheduler(shared_hashmap: SharedJobHashmap) {
         for shared_job in shared_jobs {
             let job: LockedJob = shared_job.lock().await;
             
-            if !job.is_waiting_to_start() {
+            if job.is_waiting_to_start() {
                 
                 jobs_to_start.push(shared_job.clone());
             }
@@ -201,66 +187,6 @@ async fn create_job(settings: RecorderSettings, shared_hashmap: SharedJobHashmap
     let shared_job: SharedJob = Arc::new(Mutex::new(job));
 
     Ok(shared_job)
-}
-
-async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
-    let mut job: LockedJob = shared_job.lock().await;
-
-    let settings = job.settings();
-
-    let filename_common = format!("{}_{}_Fq{}", job.uid(), Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.freq()));
-    let filename_png = format!("{}_Zm{}", filename_common, settings.zoom().to_string());
-    let filename_iq = format!("{}_Bw1d2e4", filename_common);
-
-    let mut args: Vec<String>  = match settings.rec_type() {
-        RecordingType::PNG => vec![
-            "-s".to_string(), "127.0.0.1".to_string(),
-            "-p".to_string(), "8073".to_string(),
-            format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
-            "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
-            "--filename=KiwiRec".to_string(),
-            format!("--station={}", filename_png),
-
-            "--wf".to_string(), 
-            "--wf-png".to_string(), 
-            "--speed=4".to_string(), 
-            "--modulation=am".to_string(), 
-            format!("--zoom={}", settings.zoom().to_string())],
-        RecordingType::IQ => vec![
-            "-s".to_string(), "127.0.0.1".to_string(),
-            "-p".to_string(), "8073".to_string(),
-            format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
-            "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
-            "--filename=KiwiRec".to_string(),
-            format!("--station={}", filename_iq),
-
-            "--kiwi-wav".to_string(), 
-            "--modulation=iq".to_string()]
-    };
-
-    if settings.duration() != 0 {
-        args.push(format!("--time-limit={}", settings.duration()));
-    }
-
-    let mut child: Child = tokio::process::Command::new("python3")
-        .arg("kiwirecorder.py")
-        .args(args)
-        .current_dir("/usr/local/src/kiwiclient/")
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()?;
-
-    if let Some(stdout) = child.stdout.take() {
-        tokio::spawn(read_output(stdout, shared_job.clone(), "STDOUT", true));
-    }
-    if let Some(stderr) = child.stderr.take() {
-       tokio::spawn(read_output(stderr, shared_job.clone(), "STDERR", false));
-    }
-
-       
-    job.mark_started(child);
-
-    Ok(())
 }
 
 #[post("/api/recorder/stop/{job_id}")]

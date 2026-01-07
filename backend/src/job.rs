@@ -1,9 +1,14 @@
 use serde::{Serialize, Deserialize};
 use tokio::process::Child;
+use tokio::io::{AsyncBufReadExt, BufReader, AsyncRead};
+use tokio::sync::{Mutex, MutexGuard};
 use rand::{Rng, thread_rng};
 use chrono::Utc;
+use std::sync::Arc;
 use std::collections::VecDeque;
 use std::fmt::{self, Display, Formatter};
+use std::io;
+use std::process::Stdio;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Log {
@@ -219,37 +224,11 @@ impl Job {
         && self.process.is_none()
     }
 
-    pub fn push_log(&mut self, data: String) {
+    fn push_log(&mut self, data: String) {
         self.logs.push(Log {
             timestamp: Utc::now().timestamp() as u64, 
             data: data,
         });
-    }
-
-    pub fn mark_started(&mut self, process: Child) {
-        let now = Utc::now().timestamp() as u64;
-
-        self.running = true;
-        self.process = Some(process);
-        self.started_at = Some(now);
-        self.next_run_start = match self.settings.interval {
-            Some(0) | None => None,
-            Some(interval) => Some(now + interval as u64),
-        };
-        self.push_log("<Started>".to_string());
-        self.push_log(format!("<Settings>  {}", self.settings))
-    }
-
-    pub fn mark_exited(&mut self) {
-        self.running = false;
-        self.process = None;
-        self.push_log("<Exited>".to_string());
-    }
-
-    pub fn mark_stopped_manually(&mut self) {
-        self.running = false;
-        self.process = None;
-        self.push_log("<Stoped Manually>".to_string());
     }
 
     pub fn take_process(&mut self) -> Option<Child> {
@@ -266,6 +245,113 @@ impl Job {
 
     pub fn settings(&self) -> RecorderSettings {
         self.settings
+    }
+
+    pub async fn start(shared_job: Arc<Mutex<Job>>) -> io::Result<()> {
+        let job = shared_job.lock().await;
+        let uid = job.job_uid.clone();
+        let settings = job.settings;
+        drop(job);
+
+        let filename_common = format!("{}_{}_Fq{}", uid, Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC").to_string(), to_scientific(settings.freq()));
+        let filename_png = format!("{}_Zm{}", filename_common, settings.zoom());
+        let filename_iq = format!("{}_Bw1d2e4", filename_common);
+
+        let mut args: Vec<String>  = match settings.rec_type() {
+            RecordingType::PNG => vec![
+                "-s".to_string(), "127.0.0.1".to_string(),
+                "-p".to_string(), "8073".to_string(),
+                format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
+                "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
+                "--filename=KiwiRec".to_string(),
+                format!("--station={}", filename_png),
+
+                "--wf".to_string(), 
+                "--wf-png".to_string(), 
+                "--speed=4".to_string(), 
+                "--modulation=am".to_string(), 
+                format!("--zoom={}", settings.zoom().to_string())],
+            RecordingType::IQ => vec![
+                "-s".to_string(), "127.0.0.1".to_string(),
+                "-p".to_string(), "8073".to_string(),
+                format!("--freq={:#.3}", (settings.freq() as f64 / 1000.0)),
+                "-d".to_string(), "/var/recorder/recorded-files/".to_string(),
+                "--filename=KiwiRec".to_string(),
+                format!("--station={}", filename_iq),
+
+                "--kiwi-wav".to_string(), 
+                "--modulation=iq".to_string()]
+        };
+
+        if settings.duration() != 0 {
+            args.push(format!("--time-limit={}", settings.duration()));
+        }
+
+        let mut child: Child = tokio::process::Command::new("python3")
+            .arg("kiwirecorder.py")
+            .args(args)
+            .current_dir("/usr/local/src/kiwiclient/")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(stdout) = child.stdout.take() {
+            tokio::spawn(Self::read_output(stdout, shared_job.clone(), "STDOUT", true));
+        }
+
+        if let Some(stderr) = child.stderr.take() {
+        tokio::spawn(Self::read_output(stderr, shared_job.clone(), "STDERR", false));
+        }
+
+        let mut job = shared_job.lock().await;
+        job.mark_started(child);
+
+        Ok(())
+    }
+
+    pub async fn stop(&mut self) -> io::Result<()> {
+
+        Ok(())
+    }
+
+    async fn read_output(pipe: impl AsyncRead + Unpin, job: Arc<Mutex<Job>>, pipe_tag: &str, responsible_for_exit: bool) {
+        let reader = BufReader::new(pipe);
+        let mut lines = reader.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let mut state: MutexGuard<'_, Job> = job.lock().await;
+            state.push_log(format!("<{}> {}", pipe_tag, line));
+
+        }
+        if responsible_for_exit {
+            let mut state: MutexGuard<'_, Job> = job.lock().await;
+            state.mark_exited();
+        }
+    }
+
+    fn mark_started(&mut self, process: Child) {
+        let now = Utc::now().timestamp() as u64;
+
+        self.running = true;
+        self.process = Some(process);
+        self.started_at = Some(now);
+        self.next_run_start = match self.settings.interval {
+            Some(0) | None => None,
+            Some(interval) => Some(now + interval as u64),
+        };
+        self.push_log("<Started>".to_string());
+        self.push_log(format!("<Settings>  {}", self.settings))
+    }
+
+    fn mark_exited(&mut self) {
+        self.running = false;
+        self.process = None;
+        self.push_log("<Exited>".to_string());
+    }
+
+    fn mark_stopped_manually(&mut self) {
+        self.running = false;
+        self.process = None;
+        self.push_log("<Stoped Manually>".to_string());
     }
 }
 
