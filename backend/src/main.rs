@@ -1,10 +1,9 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, delete, get, post, web::{self, Data, Path}};
 use serde_json::json;
-use std::{collections::HashMap, io::Result, process::Stdio, sync::Arc};
-use tokio::{spawn, time::{Duration, sleep}, process::Child, sync::{Mutex, MutexGuard}, io::{AsyncBufReadExt, BufReader, AsyncRead}};
-use chrono::Utc;
+use std::{collections::HashMap, io::Result, sync::Arc};
+use tokio::{spawn, time::{Duration, sleep}, sync::{Mutex, MutexGuard}};
 
-//tmp
+//JobStatus
 use backend::job::*;
 
 type ArtixRecorderSettings = web::Json<RecorderSettings>;
@@ -65,7 +64,7 @@ async fn job_scheduler(shared_hashmap: SharedJobHashmap) {
         println!("Jobs to start: {:?}", jobs_to_start);
 
         for job in jobs_to_start {
-            match spawn_recorder(job).await {
+            match Job::start(job).await {
                 Ok(..) => {},
                 Err(err) => println!("Error id: joi8u4398thn98yg9fddogih. Error info: {}", err),
             };
@@ -92,12 +91,12 @@ async fn recorder_status_all(shared_hashmap: ArtixRecorderHashmap) -> impl Respo
     }
     drop(hashmap);
 
-    let mut jobs: Vec<JobStatus> = Vec::new();
+    let mut jobs: Vec<JobInfo> = Vec::new();
     for locked_job in locked_jobs {
         let job_guard: LockedJob = locked_job.lock().await;
-        let job_status = JobStatus::from(&*job_guard);
+        let job_info = JobInfo::from(&*job_guard);
         drop(job_guard);
-        jobs.push(job_status);
+        jobs.push(job_info);
     }
     HttpResponse::Ok().json(jobs)
 }
@@ -116,8 +115,8 @@ async fn recorder_status_one(path: Path<u32>, shared_hashmap: ArtixRecorderHashm
         }));
     }
 
-    let job_status = JobStatus::from(&*(shared_job.unwrap().lock().await));
-    return HttpResponse::Ok().json(job_status)
+    let job_info = JobInfo::from(&*(shared_job.unwrap().lock().await));
+    return HttpResponse::Ok().json(job_info)
 }
 
 #[post("/api/recorder/start")]
@@ -153,7 +152,7 @@ async fn start_recorder(request_settings_raw: ArtixRecorderSettings, shared_hash
             })),
     }
 
-    match spawn_recorder(shared_job.clone()).await {
+    match Job::start(shared_job.clone()).await {
         Ok(..) => {},
         _ => return HttpResponse::InternalServerError().json(json!({ 
                 "message": "Error ID: iorjoghehrguoojohb89y49785yhjh45iu6g",
@@ -170,8 +169,8 @@ async fn start_recorder(request_settings_raw: ArtixRecorderSettings, shared_hash
     hashmap.insert(job_id, shared_job.clone());
     drop(hashmap);
 
-    let job_status = JobStatus::from(&*(shared_job.lock().await));
-    HttpResponse::Ok().json(job_status)
+    let job_info = JobInfo::from(&*(shared_job.lock().await));
+    HttpResponse::Ok().json(job_info)
 }
 
 async fn create_job(settings: RecorderSettings, shared_hashmap: SharedJobHashmap) -> Result<SharedJob> {
@@ -202,23 +201,19 @@ async fn stop_recorder(path: Path<u32>, shared_hashmap: ArtixRecorderHashmap) ->
             "message": "Job not found: job_id not valid"
         }));
     }
+    let shared_job = option_shared_job.unwrap();
 
-    let shared_job: SharedJob = option_shared_job.unwrap();
-
-    let mut job: LockedJob = shared_job.lock().await;
-    let child = job.take_process();
-    drop(job);
-
-    if let Some(mut child) = child {
-        let _ = child.kill().await;
-        let _ = child.wait().await;
+    match Job::stop(shared_job.clone()).await {
+        Ok(()) => {},
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(json!({
+                "message": err.to_string()
+            }));
+        }
     }
 
-    let mut job: LockedJob = shared_job.lock().await;
-    job.mark_stopped_manually();
-
-    let job_status = JobStatus::from(&*job);
-    HttpResponse::Ok().json(job_status)
+    let job_info = JobInfo::from(&*shared_job.clone().lock().await);
+    HttpResponse::Ok().json(job_info)
 }
 
 #[delete("/api/recorder/{job_id}")]
@@ -234,15 +229,15 @@ async fn remove_recorder(path: Path<u32>, shared_hashmap: ArtixRecorderHashmap) 
             "message": "Job not found: job_id not valid"
         }));
     }
+    let shared_job = option_shared_job.unwrap();
 
-    let shared_job: SharedJob = option_shared_job.unwrap();
-    let mut job: LockedJob = shared_job.lock().await;
-    let child = job.take_process();
-    drop(job);
-
-    if let Some(mut child) = child {
-        let _ = child.kill().await;
-        let _ = child.wait().await;
+    match Job::stop(shared_job.clone()).await {
+        Ok(()) => {},
+        Err(err) => {
+            return HttpResponse::InternalServerError().json(json!({
+                "message": err.to_string()
+            }));
+        }
     }
     
     HttpResponse::Ok().json(json!({
