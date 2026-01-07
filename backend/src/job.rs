@@ -126,6 +126,26 @@ pub struct RecorderSettings {
 }
 
 impl RecorderSettings {
+    pub fn new(
+        rec_type: RecordingType,
+        frequency: u32,
+        zoom: u8,
+        duration: u16,
+        interval: Option<u32>,
+    ) -> Self {
+        Self {
+            rec_type,
+            frequency,
+            zoom,
+            duration,
+            interval,
+        }
+    }
+
+    pub fn interval(&self) -> Option<u32> {
+        self.interval
+    }
+
     pub fn validate(&self) -> Result<(), RecorderSettingsError> {
         if self.zoom > 31 { // Prevent bitshifting a u32 by 32 bits
             return Err(RecorderSettingsError::ZoomTooHigh);
@@ -151,7 +171,7 @@ impl RecorderSettings {
         Ok(())
     }
 
-    fn get_filename(&self, uid: &str) -> String {
+    pub fn get_filename(&self, uid: &str) -> String {
         let filename_common = format!(
             "{}_{}_Fq{}", 
             uid, 
