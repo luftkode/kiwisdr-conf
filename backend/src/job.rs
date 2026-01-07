@@ -12,7 +12,7 @@ pub struct Log {
 }
 
 impl Log {
-    fn get_truncaded(&self) -> Self {
+    fn get_truncated(&self) -> Self {
         const MAX_LOG_LENGTH: usize = 200;
 
         let truncated_data = if self.data.len() > MAX_LOG_LENGTH {
@@ -38,7 +38,7 @@ impl Logs {
         Logs { logs: data }
     }
 
-    pub fn get_truncaded(&self) -> Self {
+    pub fn get_truncated(&self) -> Self {
         const LOG_COUNT: usize = 20;
 
         Self {
@@ -46,7 +46,7 @@ impl Logs {
                 .rev()
                 .take(LOG_COUNT)
                 .map(|log| {
-                    log.get_truncaded()
+                    log.get_truncated()
                 })
                 .collect(),
         }
@@ -218,18 +218,18 @@ impl Job {
         });
     }
 
-    pub fn mark_started(&mut self, process: Child, settings: RecorderSettings) {
+    pub fn mark_started(&mut self, process: Child) {
         let now = Utc::now().timestamp() as u64;
 
         self.running = true;
         self.process = Some(process);
         self.started_at = Some(now);
-        self.next_run_start = match settings.interval {
+        self.next_run_start = match self.settings.interval {
             Some(0) | None => None,
             Some(interval) => Some(now + interval as u64),
         };
         self.push_log("<Started>".to_string());
-        self.push_log(format!("<Settings>  {}", settings))
+        self.push_log(format!("<Settings>  {}", self.settings))
     }
 
     pub fn mark_exited(&mut self) {
@@ -238,10 +238,10 @@ impl Job {
         self.push_log("<Exited>".to_string());
     }
 
-    pub fn mark_stoped_manualy(&mut self) {
+    pub fn mark_stopped_manually(&mut self) {
         self.running = false;
         self.process = None;
-        self.push_log("<Stoped Manualy>".to_string());
+        self.push_log("<Stoped Manually>".to_string());
     }
 
     pub fn take_process(&mut self) -> Option<Child> {
@@ -280,7 +280,7 @@ impl From<&Job> for JobStatus {
             running: value.running,
             started_at: value.started_at,
             next_run_start: value.next_run_start,
-            logs: value.logs.get_truncaded(),
+            logs: value.logs.get_truncated(),
             settings: value.settings, 
         }
     }

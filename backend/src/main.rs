@@ -258,7 +258,7 @@ async fn spawn_recorder(shared_job: SharedJob) -> Result<()> {
     }
 
        
-    job.mark_started(child, settings);
+    job.mark_started(child);
 
     Ok(())
 }
@@ -289,7 +289,7 @@ async fn stop_recorder(path: Path<u32>, shared_hashmap: ArtixRecorderHashmap) ->
     }
 
     let mut job: LockedJob = shared_job.lock().await;
-    job.mark_stoped_manualy();
+    job.mark_stopped_manually();
 
     let job_status = JobStatus::from(&*job);
     HttpResponse::Ok().json(job_status)
