@@ -24,22 +24,18 @@ async fn status() -> impl Responder {
 
 #[get("/api/recorder/status")]
 async fn recorder_status_all(state: web::Data<AppState>) -> impl Responder {
-    let mut locked_jobs: Vec<SharedJob> = Vec::new();
+    let jobs = {
+        let map = state.jobs.lock().await;
+        map.values().cloned().collect::<Vec<_>>()
+    };
 
-    let hashmap  = state.jobs.lock().await;
-    for key in hashmap.keys() {
-        locked_jobs.push(hashmap[key].clone());
+    let mut job_infos = Vec::with_capacity(jobs.len());
+    for job in jobs {
+        let job = job.lock().await;
+        job_infos.push(JobInfo::from(&*job));
     }
-    drop(hashmap);
 
-    let mut jobs: Vec<JobInfo> = Vec::new();
-    for locked_job in locked_jobs {
-        let job_guard = locked_job.lock().await;
-        let job_info = JobInfo::from(&*job_guard);
-        drop(job_guard);
-        jobs.push(job_info);
-    }
-    HttpResponse::Ok().json(jobs)
+    HttpResponse::Ok().json(job_infos)
 }
 
 #[get("/api/recorder/status/{job_id}")]
