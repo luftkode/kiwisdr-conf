@@ -197,26 +197,6 @@ impl RecorderSettings {
 
         args
     }
-
-    pub fn rec_type(&self) -> RecordingType {
-        self.rec_type
-    }
-
-    pub fn freq(&self) -> u32 {
-        self.frequency
-    }
-
-    pub fn zoom(&self) -> u8 {
-        self.zoom
-    }
-    
-    pub fn duration(&self) -> u16 {
-        self.duration
-    }
-    
-    pub fn interval(&self) -> Option<u32> {
-        self.interval
-    }
 }
 
 impl Display for RecorderSettings {
@@ -281,23 +261,8 @@ impl Job {
         && self.process.is_none()
     }
 
-    fn push_log(&mut self, data: String) {
-        self.logs.push(Log {
-            timestamp: Utc::now().timestamp() as u64, 
-            data: data,
-        });
-    }
-
     pub fn id(&self) -> u32 {
         self.job_id
-    }
-
-    pub fn uid(&self) -> &str {
-        &self.job_uid
-    }
-
-    pub fn settings(&self) -> RecorderSettings {
-        self.settings
     }
 
     pub async fn start(shared_job: Arc<Mutex<Job>>) -> io::Result<()> {
@@ -359,6 +324,13 @@ impl Job {
             let mut state: MutexGuard<'_, Job> = job.lock().await;
             state.mark_exited();
         }
+    }
+
+    fn push_log(&mut self, data: String) {
+        self.logs.push(Log {
+            timestamp: Utc::now().timestamp() as u64, 
+            data: data,
+        });
     }
 
     fn mark_starting(&mut self) -> io::Result<()> {
