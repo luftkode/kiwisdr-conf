@@ -190,11 +190,19 @@ impl Display for RecorderSettings {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum JobStatus {
+    Idle,
+    Starting,
+    Running,
+    Stopping,
+}
+
 #[derive(Debug)]
 pub struct Job {
     job_id: u32,
     job_uid: String,
-    running: bool,
+    status: JobStatus,
     process: Option<Child>,
     started_at: Option<u64>,
     next_run_start: Option<u64>,
@@ -248,7 +256,8 @@ impl Job {
     }
 
     pub async fn start(shared_job: Arc<Mutex<Job>>) -> io::Result<()> {
-        let job = shared_job.lock().await;
+        let mut job = shared_job.lock().await;
+        job.mark_starting()?;
         let uid = job.job_uid.clone();
         let settings = job.settings;
         drop(job);
@@ -304,7 +313,7 @@ impl Job {
         }
 
         let mut job = shared_job.lock().await;
-        job.mark_started(child);
+        job.mark_running(child);
 
         Ok(())
     }
@@ -328,10 +337,25 @@ impl Job {
         }
     }
 
-    fn mark_started(&mut self, process: Child) {
+    fn mark_starting(&mut self) -> io::Result<()> {
+        debug_assert!(self.process.is_none());
+
+        if self.status != JobStatus::Idle {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "job not idle",
+            ));
+        }
+
+        self.status = JobStatus::Starting;
+        Ok(())
+    }
+
+    fn mark_running(&mut self, process: Child) {
+        debug_assert!(self.status == JobStatus::Starting);
         let now = Utc::now().timestamp() as u64;
 
-        self.running = true;
+        self.status = JobStatus::Running;
         self.process = Some(process);
         self.started_at = Some(now);
         self.next_run_start = match self.settings.interval {
@@ -341,37 +365,39 @@ impl Job {
         self.push_log("<Started>".to_string());
         self.push_log(format!("<Settings>  {}", self.settings))
     }
-
+    
     fn mark_exited(&mut self) {
-        self.running = false;
+        debug_assert!(self.status == JobStatus::Running);
+        self.status = JobStatus::Idle;
         self.process = None;
         self.push_log("<Exited>".to_string());
     }
 
     fn mark_stopped_manually(&mut self) {
-        self.running = false;
+        debug_assert!(self.status == JobStatus::Running);
+        self.status = JobStatus::Idle;
         self.process = None;
         self.push_log("<Stoped Manually>".to_string());
     }
 }
 
 #[derive(Serialize, Clone)]
-pub struct JobStatus {
+pub struct JobInfo {
     job_id: u32,
     job_uid: String,
-    running: bool,
+    status: JobStatus,
     started_at: Option<u64>,
     next_run_start: Option<u64>,
     logs: Logs,
     settings: RecorderSettings,
 }
 
-impl From<&Job> for JobStatus {
+impl From<&Job> for JobInfo {
     fn from(value: &Job) -> Self {
-        JobStatus {
+        Self {
             job_id: value.job_id,
             job_uid: value.job_uid.clone(),
-            running: value.running,
+            status: value.status,
             started_at: value.started_at,
             next_run_start: value.next_run_start,
             logs: value.logs.get_truncated(),
