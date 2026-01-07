@@ -3,8 +3,6 @@ use serde_json::json;
 
 use crate::job::*;
 use crate::state::*;
-
-type ActixRecorderSettings = web::Json<RecorderSettings>;
 use crate::error::*;
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
@@ -55,50 +53,33 @@ async fn recorder_status_one(path: web::Path<u32>, state: web::Data<AppState>) -
 }
 
 #[post("/api/recorder/start")]
-async fn start_recorder(request_settings_raw: ActixRecorderSettings, state: web::Data<AppState>) -> impl Responder {
+async fn start_recorder(payload: web::Json<RecorderSettings>, state: web::Data<AppState>, ) -> Result<impl Responder, ApiError> {
     const MAX_JOB_SLOTS: usize = 3;
-    let settings = request_settings_raw.into_inner();
-    { // Check if all recorder slots are full (Only start a new recorder if there is at least 1 empty slot)
-        let hashmap = state.jobs.lock().await;
-        let used_recorder_slots = hashmap.keys().len();
-        drop(hashmap);
+    let settings = payload.into_inner();
 
-        if used_recorder_slots >= MAX_JOB_SLOTS {
-            return HttpResponse::BadRequest().json(json!({ 
-                "message": "All recorder slots are full",
-            }));
+    // Validate settings
+    settings
+        .validate()
+        .map_err(|e| ApiError::InvalidSettings(e.to_string()))?;
+
+    // Check slots
+    {
+        let map = state.jobs.lock().await;
+        if map.len() >= MAX_JOB_SLOTS {
+            return Err(ApiError::NoAvailableSlots);
         }
     }
-    match settings.validate() {
-        Ok(()) => { }
-        Err(err) => {
-            return HttpResponse::BadRequest().json(json!({
-                "message": err.to_string()
-            }));
-        }
-    }
-    
-    let shared_job: SharedJob = create_job(settings, state.jobs.clone()).await;
 
-    match Job::start(shared_job.clone()).await {
-        Ok(..) => {},
-        _ => return HttpResponse::InternalServerError().json(json!({ 
-                "message": "Error ID: iorjoghehrguoojohb89y49785yhjh45iu6g",
-            })),
-        
-    }
+    // Create job
+    let shared_job = create_job(settings, state.jobs.clone()).await;
 
-    let shared_job_clone = shared_job.clone(); 
-    let job_guard = shared_job_clone.lock().await;
-    let job_id = job_guard.id();
-    drop(job_guard);
+    // Start job
+    Job::start(shared_job.clone()).await?;
 
-    let mut hashmap = state.jobs.lock().await;
-    hashmap.insert(job_id, shared_job.clone());
-    drop(hashmap);
+    // Generate JobInfo
+    let job_info = JobInfo::from(&*shared_job.lock().await);
 
-    let job_info = JobInfo::from(&*(shared_job.lock().await));
-    HttpResponse::Ok().json(job_info)
+    Ok(HttpResponse::Ok().json(job_info))
 }
 
 #[post("/api/recorder/stop/{job_id}")]
