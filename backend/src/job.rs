@@ -63,6 +63,14 @@ impl Logs {
     }
 }
 
+impl Default for Logs {
+    fn default() -> Self {
+        Logs {
+            logs: VecDeque::new(),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Copy, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum RecordingType {
@@ -198,7 +206,7 @@ impl Job {
             process: None,
             started_at: None,
             next_run_start: None,
-            logs: Logs::new(VecDeque::new()),
+            logs: Logs::default(),
             settings: settings,
         }
     }
