@@ -9,6 +9,8 @@ use std::collections::VecDeque;
 use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::process::Stdio;
+use std::collections::HashMap;
+use crate::state::*;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Log {
@@ -450,4 +452,23 @@ pub fn generate_uid() -> String {
             }
         })
         .collect::<String>()
+}
+
+fn get_next_free_id(map: &HashMap<u32, SharedJob>) -> u32 {
+    (u32::MIN..u32::MAX)
+        .find(|&id| !map.contains_key(&id))
+        .expect("Job ID space exhausted")
+}
+
+pub async fn create_job(settings: RecorderSettings, shared_job_map: SharedJobMap) -> SharedJob {
+    let mut hashmap = shared_job_map.lock().await;
+    let job_id: u32 = get_next_free_id(&hashmap);
+
+    let job = Job::new(job_id, settings);
+
+    let shared_job: SharedJob = Arc::new(Mutex::new(job));
+
+    hashmap.insert(job_id, shared_job.clone());
+
+    shared_job
 }
