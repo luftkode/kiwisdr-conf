@@ -5,6 +5,7 @@ use crate::job::*;
 use crate::state::*;
 
 type ActixRecorderSettings = web::Json<RecorderSettings>;
+use crate::error::*;
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(status)
@@ -39,22 +40,18 @@ async fn recorder_status_all(state: web::Data<AppState>) -> impl Responder {
 }
 
 #[get("/api/recorder/status/{job_id}")]
-async fn recorder_status_one(path: Path<u32>, state: web::Data<AppState>) -> impl Responder {
+async fn recorder_status_one(path: web::Path<u32>, state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
     let job_id = path.into_inner();
 
-    let shared_job = { 
-        let hashmap = state.jobs.lock().await;
-        (hashmap.get(&job_id)).cloned()
-    };
-
-    if shared_job.is_none() {
-        return HttpResponse::BadRequest().json(json!({
-            "message": "Job not found: job_id not valid"
-        }));
+    let shared_job = {
+        let map = state.jobs.lock().await;
+        map.get(&job_id).cloned()
     }
+    .ok_or(ApiError::JobNotFound)?;
 
-    let job_info = JobInfo::from(&*(shared_job.unwrap().lock().await));
-    return HttpResponse::Ok().json(job_info)
+    let job_info = JobInfo::from(&*shared_job.lock().await);
+
+    Ok(HttpResponse::Ok().json(job_info))
 }
 
 #[post("/api/recorder/start")]
