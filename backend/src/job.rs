@@ -497,7 +497,7 @@ pub async fn create_job(settings: RecorderSettings, shared_job_map: SharedJobMap
 mod tests {
     use super::*;
 
-    mod recorder_settings_test {
+    mod recorder_settings {
         use super::*;
 
         #[test]
@@ -629,6 +629,57 @@ mod tests {
             let args = settings.as_args("UID123");
             assert!(args.contains(&"--kiwi-wav".to_string()));
             assert!(args.contains(&"--modulation=iq".to_string()));
+        }
+    }
+
+    mod utils {
+        use super::*;
+
+        #[test]
+        fn generate_uid_length() {
+            const LENGTH: usize = 9;
+
+            let uid = generate_uid();
+            assert!(uid.chars().count() == LENGTH)
+        }
+
+        #[test]
+        fn generate_uid_charset() {
+            const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
+
+            let uid = generate_uid();
+
+            assert!(
+                uid.bytes().all(|b| CHARSET.contains(&b)),
+                "UID contains invalid characters: {uid}"
+            );
+        }
+
+        #[test]
+        fn to_scientific_1() {
+            const NUMBER: u32 = 147_500;
+            const OUTPUT: &str = "1d475e5";
+
+            let scientific = to_scientific(NUMBER);
+            assert_eq!(scientific, OUTPUT);
+        }
+
+        #[test]
+        fn to_scientific_2() {
+            const NUMBER: u32 = 123_456_789;
+            const OUTPUT: &str = "1d234e8";
+
+            let scientific = to_scientific(NUMBER);
+            assert_eq!(scientific, OUTPUT);
+        }
+
+        #[test]
+        fn to_scientific_3() {
+            const NUMBER: u32 = 30_000_000;
+            const OUTPUT: &str = "3e7";
+
+            let scientific = to_scientific(NUMBER);
+            assert_eq!(scientific, OUTPUT);
         }
     }
 }
