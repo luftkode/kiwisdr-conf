@@ -442,18 +442,26 @@ impl From<&Job> for JobInfo {
 }
 
 pub fn to_scientific(num: u32) -> String {
-    if num == 0{
+    if num == 0 {
         return "0e0".to_string();
     }
-    let exponent = (num as f64).log10().floor() as u32;
-    let mantissa = num as f64 / 10f64.powi(exponent as i32);
-    
-    let mantissa_str = format!("{:.3}", mantissa)
-        .trim_end_matches('0')
-        .trim_end_matches('.')
-        .replace('.', "d");
 
-    return format!("{}e{}", mantissa_str, exponent);
+    let s = num.to_string();
+    let exponent = s.len() - 1;
+
+    let mut mantissa = s[..1].to_string();
+
+    if s.len() > 1 {
+        let rest = &s[1..];
+        let trimmed = &rest[..rest.len().min(3)];
+        if !trimmed.chars().all(|c| c == '0') {
+            mantissa.push('d');
+            mantissa.push_str(trimmed);
+            mantissa = mantissa.trim_end_matches('0').to_string();
+        }
+    }
+
+    format!("{}e{}", mantissa, exponent)
 }
 
 pub fn generate_uid() -> String {
