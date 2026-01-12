@@ -497,11 +497,11 @@ pub async fn create_job(settings: RecorderSettings, shared_job_map: SharedJobMap
 mod tests {
     use super::*;
 
-    mod recorder_settings_test { // RecorderSettings
+    mod recorder_settings_test {
         use super::*;
 
         #[test]
-        fn test_zoom_too_high() {
+        fn zoom_too_high() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG, 
                 10_000_000, 
@@ -513,7 +513,19 @@ mod tests {
         }
 
         #[test]
-        fn test_zoom_min_boundary() {
+        fn zoom_max_boundary() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                15_000_000,
+                31,
+                10,
+                None
+            );
+            assert!(settings.validate().is_ok());
+        }
+
+        #[test]
+        fn zoom_min_boundary() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG,
                 15_000_000,
@@ -524,9 +536,8 @@ mod tests {
             assert!(settings.validate().is_ok());
         }
 
-        // Test frequency validation
         #[test]
-        fn test_frequency_above_max() {
+        fn frequency_above_max() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG,
                 16_681_359,
@@ -538,7 +549,7 @@ mod tests {
         }
 
         #[test]
-        fn test_frequency_below_min() {
+        fn frequency_below_min() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG,
                 147_500,
@@ -550,7 +561,7 @@ mod tests {
         }
 
         #[test]
-        fn test_frequency_within_bounds() {
+        fn frequency_within_bounds() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG,
                 15_000_000,
@@ -561,9 +572,8 @@ mod tests {
             assert!(settings.validate().is_ok());
         }
 
-        // Test filename generation
         #[test]
-        fn test_filename_format_png() {
+        fn filename_format_png() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG,
                 947_500,
@@ -578,7 +588,7 @@ mod tests {
         }
 
         #[test]
-        fn test_filename_format_iq() {
+        fn filename_format_iq() {
             let settings = RecorderSettings::new(
                 RecordingType::IQ,
                 16_490_000,
@@ -592,9 +602,8 @@ mod tests {
             assert!(filename.contains("Bw1d2e4"));
         }
 
-        // Test as_args
         #[test]
-        fn test_as_args_png() {
+        fn as_args_png() {
             let settings = RecorderSettings::new(
                 RecordingType::PNG,
                 10_000_000,
@@ -609,7 +618,7 @@ mod tests {
         }
 
         #[test]
-        fn test_as_args_iq() {
+        fn as_args_iq() {
             let settings = RecorderSettings::new(
                 RecordingType::IQ,
                 10_000_000,
