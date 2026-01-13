@@ -12,7 +12,7 @@ use std::process::Stdio;
 use std::collections::HashMap;
 use crate::state::*;
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct Log {
     timestamp: u64, // Unix
     data: String
@@ -637,6 +637,54 @@ mod tests {
             let args = settings.as_args("UID123");
             assert!(args.contains(&"--kiwi-wav".to_string()));
             assert!(args.contains(&"--modulation=iq".to_string()));
+        }
+    }
+
+    mod log {
+        use super::*;
+
+        #[test]
+        fn get_truncated_1() {
+            let input = Log {
+                timestamp: 147_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ultrices scelerisque mi, eget molestie ipsum vestibulum tristique. Nulla vitae mi.".into(),
+            };
+            let output = Log {
+                timestamp: 147_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ultrices scelerisque mi, eget molestie ipsum vestibulum tristique. Nulla vitae mi.".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
+
+        #[test]
+        fn get_truncated_2() {
+            let input = Log {
+                timestamp: 200_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur lacinia congue dui at euismod. Etiam sed lorem sit amet odio sollicitudin feugiat. Phasellus risus leo, fermentum et posuere at orci.".into(),
+            };
+            let output = Log {
+                timestamp: 200_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur lacinia congue dui at euismod. Etiam sed lorem sit amet odio sollicitudin feugiat. Phasellus risus leo, fermentum et posuere at orci.".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
+
+        #[test]
+        fn get_truncated_3() {
+            let input = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales ligula leo, sed tempus velit vehicula eget. Morbi orci eros, commodo cursus sapien vitae, fringilla blandit orci. Praesent eget 
+                    velit id velit sollicitudin elementum. Proin sed efficitur dolor, quis porta nulla. Pellentesque ac libero sed tortor tempor tincidunt. Integer condimentum risus sed ipsum tempus feugiat. Nulla lacinia velit 
+                    sed nunc vulputate, at sagittis mi convallis. Donec ultrices, metus nec rhoncus porttitor.".into(),
+            };
+            let output = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales ligula leo, sed tempus velit vehicula eget. Morbi orci eros, commodo cursus sapien vitae, fringilla blandit orci. Praesent ege...".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
         }
     }
 
