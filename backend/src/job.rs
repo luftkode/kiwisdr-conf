@@ -12,7 +12,7 @@ use std::process::Stdio;
 use std::collections::HashMap;
 use crate::state::*;
 
-#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Log {
     timestamp: u64, // Unix
     data: String
@@ -39,7 +39,7 @@ impl Log {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Logs {
     logs: VecDeque<Log>,
 }
@@ -703,6 +703,94 @@ mod tests {
             };
         
             assert_eq!(input.get_truncated(), output)
+        }
+    }
+
+    mod logs {
+        use super::*;
+
+        #[test]
+        fn push_same_as_manual() {
+            let target: Logs = Logs {
+                logs: [
+                    Log {
+                        timestamp: 123_456,
+                        data: "a".into(),
+                    },
+                    Log {
+                        timestamp: 654_321,
+                        data: "b".into(),
+                    },
+                ].into()
+            };
+
+            let mut logs = Logs::default();
+            logs.push(Log {
+                    timestamp: 123_456,
+                    data: "a".into(),
+                },
+            );
+            logs.push(Log {
+                    timestamp: 654_321,
+                    data: "b".into(),
+                },
+            );
+
+            assert_eq!(logs, target);
+        }
+        
+        #[test]
+        fn push_drops_old() {
+            let mut logs = Logs::new(VecDeque::new());
+
+            for i in 0..1005 {
+                logs.push(Log {
+                    timestamp: i,
+                    data: i.to_string(),
+                });
+            }
+
+            assert_eq!(logs.logs.len(), 999);
+
+            // Oldest logs should be gone
+            let first = logs.logs.front().unwrap();
+            assert_eq!(first.timestamp, 1005 - 999);
+        }
+
+        #[test]
+        fn get_truncated_return_order() {
+            let mut data = VecDeque::new();
+
+            for i in 0..30 {
+                data.push_back(Log {
+                    timestamp: i,
+                    data: i.to_string(),
+                });
+            }
+
+            let logs = Logs::new(data);
+            let truncated = logs.get_truncated();
+
+            assert_eq!(truncated.logs.len(), 20);
+
+            // The newest log should be first
+            assert_eq!(truncated.logs[0].timestamp, 29);
+            assert_eq!(truncated.logs[19].timestamp, 10);
+        }
+
+        #[test]
+        fn get_truncated_truncates_contents() {
+            let mut data = VecDeque::new();
+            data.push_back(Log {
+                timestamp: 69_420,
+                data: "x".repeat(10_000),
+            });
+
+            let logs = Logs::new(data);
+            let truncated = logs.get_truncated();
+
+            let log = &truncated.logs[0];
+            assert_eq!(log.data, format!("{}...", "x".repeat(200)));
         }
     }
 
