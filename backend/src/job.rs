@@ -664,6 +664,15 @@ mod tests {
         }
 
         #[test]
+        fn generate_uid_hyphen() {
+            let uid = generate_uid();
+            let bytes = uid.as_bytes();
+            let byte = bytes[4];
+            const TARGET: u8 = b"-"[0];
+            assert_eq!(byte, TARGET);
+        }
+
+        #[test]
         fn to_scientific_1() {
             const NUMBER: u32 = 147_500;
             const OUTPUT: &str = "1d475e5";
