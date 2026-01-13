@@ -20,12 +20,16 @@ pub struct Log {
 
 impl Log {
     fn get_truncated(&self) -> Self {
-        const MAX_LOG_LENGTH: usize = 200;
+        const MAX_LOG_CHARS: usize = 200;
 
-        let truncated_data = if self.data.len() > MAX_LOG_LENGTH {
-            format!("{}...", &self.data[..MAX_LOG_LENGTH])
+        let mut chars = self.data.chars();
+
+        let truncated: String = chars.by_ref().take(MAX_LOG_CHARS).collect();
+
+        let truncated_data = if chars.next().is_some() {
+            format!("{}...", truncated)
         } else {
-            self.data.clone()
+            truncated
         };
 
         Self {
