@@ -247,10 +247,11 @@ impl Display for RecorderSettings {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum JobStatus {
-    Idle,
-    Starting,
-    Running,
-    Stopping,
+    Idle,        // Waiting to start
+    Starting,    // Launching process
+    Running,     // Process active
+    Stopping,    // Being stopped manually (if kiwirecorder.py gets a duration it will automaticly stop)
+    Completed,   // One-shot job finished, never restart
 }
 
 #[derive(Debug)]
@@ -405,7 +406,13 @@ impl Job {
             self.status == JobStatus::Running || self.status == JobStatus::Stopping,
             "mark_exited called, but job status was {:?}", self.status
         );
-        self.status = JobStatus::Idle;
+        
+        // One-shot jobs move to Completed so they dont start again
+        self.status = if self.settings.interval.is_none() {
+            JobStatus::Completed
+        } else {
+            JobStatus::Idle
+        };
         self.process = None;
         self.push_log("<Exited>".to_string());
     }
@@ -414,7 +421,13 @@ impl Job {
         debug_assert!(self.status == JobStatus::Stopping, 
             "mark_stopped_manually called, but job status was {:?}", self.status
         );
-        self.status = JobStatus::Idle;
+
+        // One-shot jobs move to Completed so they dont start again
+        self.status = if self.settings.interval.is_none() {
+            JobStatus::Completed
+        } else {
+            JobStatus::Idle
+        };
         self.process = None;
         self.push_log("<Stopped Manually>".to_string());
     }
