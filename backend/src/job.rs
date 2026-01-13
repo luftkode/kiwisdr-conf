@@ -686,6 +686,20 @@ mod tests {
         
             assert_eq!(input.get_truncated(), output)
         }
+
+        #[test]
+        fn get_truncated_4() { // Test cutting multibyte utf8 chars
+            let input = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie hendrerit scelerisque. Varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. A multibyte UTF-8 char: ﷽, right at the border.".into(),
+            };
+            let output = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie hendrerit scelerisque. Varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. A multibyte UTF-8 char: ﷽...".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
     }
 
     mod utils {
