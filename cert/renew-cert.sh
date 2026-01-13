@@ -52,14 +52,14 @@ fi
 
 CONF_FILE=$(mktemp)
 cat > "$CONF_FILE" <<EOF
-[ req ]
+[req]
 default_bits       = 2048
 prompt             = no
 default_md         = sha256
 distinguished_name = dn
 req_extensions     = req_ext
 
-[ dn ]
+[dn]
 C = DK
 ST = Aarhus
 L = Skyby
@@ -67,10 +67,10 @@ O = SkyTEM Surveys ApS
 OU = SkyTEM Surveys ApS
 CN = ${HOST}
 
-[ req_ext ]
+[req_ext]
 subjectAltName = @alt_names
 
-[ server_cert ]
+[server_cert]
 basicConstraints = CA:FALSE
 keyUsage = digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
@@ -78,7 +78,7 @@ subjectAltName = @alt_names
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid,issuer
 
-[ alt_names ]
+[alt_names]
 DNS.1 = ${HOST}
 IP.1  = ${IPV4}
 EOF
