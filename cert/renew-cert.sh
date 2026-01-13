@@ -10,11 +10,10 @@ INTERFACE="eth0"
 
 ipv4() {
     ipv4_address=$(
-        ip addr show dev $INTERFACE 2>/dev/null |
-        grep -w inet |
-        awk '{print $2}' |
-        cut -d '/' -f 1 |
-        tr -d ' '
+        ip addr show dev "$INTERFACE" 2>/dev/null |
+        awk '/inet / {print $2}' |
+        cut -d/ -f1 |
+        head -n1
     )
 
     if [ -z "$ipv4_address" ]; then
