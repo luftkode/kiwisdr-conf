@@ -1,0 +1,768 @@
+use serde::{Serialize, Deserialize};
+use tokio::process::Child;
+use tokio::io::{AsyncBufReadExt, BufReader, AsyncRead};
+use tokio::sync::{Mutex, MutexGuard};
+use rand::{Rng, thread_rng};
+use chrono::Utc;
+use std::sync::Arc;
+use std::collections::VecDeque;
+use std::fmt::{self, Display, Formatter};
+use std::io;
+use std::process::Stdio;
+use std::collections::HashMap;
+use crate::state::*;
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub struct Log {
+    timestamp: u64, // Unix
+    data: String
+}
+
+impl Log {
+    fn get_truncated(&self) -> Self {
+        const MAX_LOG_CHARS: usize = 200;
+
+        let mut chars = self.data.chars();
+
+        let truncated: String = chars.by_ref().take(MAX_LOG_CHARS).collect();
+
+        let truncated_data = if chars.next().is_some() {
+            format!("{}...", truncated)
+        } else {
+            truncated
+        };
+
+        Self {
+            timestamp: self.timestamp,
+            data: truncated_data,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Logs {
+    logs: VecDeque<Log>,
+}
+
+impl Logs {
+    pub fn new(data: VecDeque<Log>) -> Self {
+        Logs { logs: data }
+    }
+
+    pub fn get_truncated(&self) -> Self {
+        const LOG_COUNT: usize = 20;
+
+        Self {
+            logs: self.logs.iter()
+                .rev()
+                .take(LOG_COUNT)
+                .map(|log| {
+                    log.get_truncated()
+                })
+                .collect(),
+        }
+    }
+
+    pub fn push(&mut self, data: Log) {
+        const MAX_LOG_COUNT: usize = 999;
+
+        self.logs.push_back(data);
+
+        if self.logs.len() > MAX_LOG_COUNT {
+            self.logs.pop_front();
+        }
+    }
+}
+
+impl Default for Logs {
+    fn default() -> Self {
+        Logs {
+            logs: VecDeque::new(),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum RecordingType {
+    PNG,
+    IQ
+}
+
+impl Display for RecordingType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            RecordingType::PNG => write!(f, "Png"),
+            RecordingType::IQ => write!(f, "Iq"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum RecorderSettingsError {
+    ZoomTooHigh,
+    FrequencyAboveMax,
+    FrequencyBelowMin,
+}
+
+impl Display for RecorderSettingsError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            RecorderSettingsError::ZoomTooHigh =>
+                write!(f, "Zoom too high"),
+            RecorderSettingsError::FrequencyAboveMax =>
+                write!(f, "The selected frequency range exceeds the maximum frequency"),
+            RecorderSettingsError::FrequencyBelowMin =>
+                write!(f, "The selected frequency range exceeds the minimum frequency"),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Copy, Debug)]
+pub struct RecorderSettings {
+    rec_type: RecordingType,
+    frequency: u32, // Hz
+    #[serde(default)] // defaults zoom to 0 if not provided
+    zoom: u8,
+    duration: u16, // 0 == inf
+    #[serde(default)]
+    interval: Option<u32>, // None == once
+}
+
+impl RecorderSettings {
+    pub fn new(
+        rec_type: RecordingType,
+        frequency: u32,
+        zoom: u8,
+        duration: u16,
+        interval: Option<u32>,
+    ) -> Self {
+        Self {
+            rec_type,
+            frequency,
+            zoom,
+            duration,
+            interval,
+        }
+    }
+
+    pub fn interval(&self) -> Option<u32> {
+        self.interval
+    }
+
+    pub fn validate(&self) -> Result<(), RecorderSettingsError> {
+        if self.zoom > 31 { // Prevent bitshifting a u32 by 32 bits
+            return Err(RecorderSettingsError::ZoomTooHigh);
+        }
+
+        const MIN_FREQ: u32 = 0;
+        const MAX_FREQ: u32 = 30_000_000;
+
+        let zoom = self.zoom as u32;
+        let center_freq = self.frequency;
+
+        let bandwidth = (MAX_FREQ - MIN_FREQ) / (1 << zoom); // "(1 << zoom)" bitshift is same as "(2^zoom)"
+        let selection_freq_max = center_freq.saturating_add(bandwidth / 2); // Saturating add/sub to avoid integer overflow
+        let selection_freq_min = (center_freq as i64).saturating_sub((bandwidth as i64) / 2);
+
+        if selection_freq_max > MAX_FREQ {
+            return Err(RecorderSettingsError::FrequencyAboveMax);
+        }
+        if selection_freq_min < MIN_FREQ as i64 {
+            return Err(RecorderSettingsError::FrequencyBelowMin);
+        }
+
+        Ok(())
+    }
+
+    pub fn get_filename(&self, uid: &str) -> String {
+        let filename_common = format!(
+            "{}_{}_Fq{}", 
+            uid, 
+            Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC"), 
+            to_scientific(self.frequency)
+        );
+        
+        match self.rec_type {
+            RecordingType::IQ => 
+                format!("{}_Bw1d2e4", filename_common),
+            RecordingType::PNG =>
+                format!("{}_Zm{}", filename_common, self.zoom),
+        }            
+    }
+
+    pub fn as_args(&self, uid: &str) -> Vec<String> {
+        let mut args: Vec<String> = vec![
+            "-s".into(), "127.0.0.1".into(),
+            "-p".into(), "8073".into(),
+            format!("--freq={:#.3}", (self.frequency as f64 / 1000.0)),
+            "-d".into(), "/var/recorder/recorded-files/".into(),
+            "--filename=KiwiRec".into(),
+            format!("--station={}", self.get_filename(uid)),
+        ];
+
+        match self.rec_type {
+            RecordingType::PNG => 
+                args.extend([
+                    "--wf".into(), 
+                    "--wf-png".into(), 
+                    "--speed=4".into(), 
+                    "--modulation=am".into(), 
+                    format!("--zoom={}", self.zoom)
+                ]),
+            RecordingType::IQ => 
+                args.extend([
+                    "--kiwi-wav".into(), 
+                    "--modulation=iq".into()
+                ]),
+        };
+
+        if self.duration != 0 {
+            args.push(format!("--time-limit={}", self.duration));
+        };
+
+        args
+    }
+}
+
+impl Display for RecorderSettings {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Type: {}, Frequency: {} Hz, {}{}, for {} sec",
+            self.rec_type,
+            self.frequency,
+            match self.rec_type {
+                RecordingType::PNG => format!("Zoom: {}, ", self.zoom),
+                RecordingType::IQ => "".to_string(),
+            },
+            match self.interval {
+                Some(..) => format!("Every {} sec", self.interval.unwrap()),
+                None => "Once".to_string(),
+            },
+            self.duration,
+        )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum JobStatus {
+    Idle,
+    Starting,
+    Running,
+    Stopping,
+}
+
+#[derive(Debug)]
+pub struct Job {
+    job_id: u32,
+    job_uid: String,
+    status: JobStatus,
+    process: Option<Child>,
+    started_at: Option<u64>,
+    next_run_start: Option<u64>,
+    logs: Logs,
+    settings: RecorderSettings,
+}
+
+impl Job {
+    pub fn new(job_id: u32, settings: RecorderSettings) -> Self {
+        Self {
+            job_id: job_id,
+            job_uid: generate_uid(),
+            status: JobStatus::Idle,
+            process: None,
+            started_at: None,
+            next_run_start: None,
+            logs: Logs::default(),
+            settings: settings,
+        }
+    }
+
+    pub fn is_waiting_to_start(&self) -> bool {
+        let now = Utc::now().timestamp() as u64;
+
+        self.status == JobStatus::Idle
+        && self.next_run_start.unwrap_or(0) <= now 
+        && self.process.is_none()
+    }
+
+    pub fn id(&self) -> u32 {
+        self.job_id
+    }
+
+    pub async fn start(shared_job: Arc<Mutex<Job>>) -> io::Result<()> {
+        let mut job = shared_job.lock().await;
+        job.mark_starting()?;
+        let uid = job.job_uid.clone();
+        let settings = job.settings.clone();
+        drop(job);
+
+        let mut child: Child = tokio::process::Command::new("python3")
+            .arg("kiwirecorder.py")
+            .args(settings.as_args(&uid))
+            .current_dir("/usr/local/src/kiwiclient/")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+
+        if let Some(stdout) = child.stdout.take() {
+            tokio::spawn(Self::read_output(stdout, shared_job.clone(), "STDOUT", true));
+        }
+
+        if let Some(stderr) = child.stderr.take() {
+        tokio::spawn(Self::read_output(stderr, shared_job.clone(), "STDERR", false));
+        }
+
+        let mut job = shared_job.lock().await;
+        job.mark_running(child);
+
+        Ok(())
+    }
+
+    pub async fn stop(shared_job: Arc<Mutex<Job>>) -> io::Result<()> {
+        let mut job = shared_job.lock().await;
+        job.mark_stopping()?;
+        let child = job.process.take();
+        drop(job);
+
+        if let Some(mut child) = child {
+            child.kill().await?;
+            let _ = child.wait().await?;
+        }
+
+        let mut job = shared_job.lock().await;
+        job.mark_stopped_manually();
+
+
+        Ok(())
+    }
+
+    async fn read_output(pipe: impl AsyncRead + Unpin, job: Arc<Mutex<Job>>, pipe_tag: &str, responsible_for_exit: bool) {
+        let reader = BufReader::new(pipe);
+        let mut lines = reader.lines();
+        while let Ok(Some(line)) = lines.next_line().await {
+            let mut state: MutexGuard<'_, Job> = job.lock().await;
+            state.push_log(format!("<{}> {}", pipe_tag, line));
+
+        }
+        if responsible_for_exit {
+            let mut state: MutexGuard<'_, Job> = job.lock().await;
+            state.mark_exited();
+        }
+    }
+
+    fn push_log(&mut self, data: String) {
+        self.logs.push(Log {
+            timestamp: Utc::now().timestamp() as u64, 
+            data: data,
+        });
+    }
+
+    fn mark_starting(&mut self) -> io::Result<()> {
+        debug_assert!(self.process.is_none());
+
+        if self.status != JobStatus::Idle {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Job not idle",
+            ));
+        }
+
+        self.status = JobStatus::Starting;
+        Ok(())
+    }
+
+    fn mark_running(&mut self, process: Child) {
+        debug_assert!(self.status == JobStatus::Starting);
+        let now = Utc::now().timestamp() as u64;
+
+        self.status = JobStatus::Running;
+        self.process = Some(process);
+        self.started_at = Some(now);
+        self.next_run_start = match self.settings.interval {
+            Some(0) | None => None,
+            Some(interval) => Some(now + interval as u64),
+        };
+        self.push_log("<Started>".to_string());
+        self.push_log(format!("<Settings>  {}", self.settings))
+    }
+
+    fn mark_stopping(&mut self) -> io::Result<()> {
+        if self.status != JobStatus::Running {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Job is not running",
+            ));
+        }
+
+        self.status = JobStatus::Stopping;
+        Ok(())
+    }
+    
+    fn mark_exited(&mut self) {
+        debug_assert!(
+            self.status == JobStatus::Running || self.status == JobStatus::Stopping,
+            "mark_exited called, but job status was {:?}", self.status
+        );
+        self.status = JobStatus::Idle;
+        self.process = None;
+        self.push_log("<Exited>".to_string());
+    }
+
+    fn mark_stopped_manually(&mut self) {
+        debug_assert!(self.status == JobStatus::Stopping, 
+            "mark_stopped_manually called, but job status was {:?}", self.status
+        );
+        self.status = JobStatus::Idle;
+        self.process = None;
+        self.push_log("<Stopped Manually>".to_string());
+    }
+}
+
+#[derive(Serialize, Clone)]
+pub struct JobInfo {
+    job_id: u32,
+    job_uid: String,
+    status: JobStatus,
+    started_at: Option<u64>,
+    next_run_start: Option<u64>,
+    logs: Logs,
+    settings: RecorderSettings,
+}
+
+impl From<&Job> for JobInfo {
+    fn from(value: &Job) -> Self {
+        Self {
+            job_id: value.job_id,
+            job_uid: value.job_uid.clone(),
+            status: value.status,
+            started_at: value.started_at,
+            next_run_start: value.next_run_start,
+            logs: value.logs.get_truncated(),
+            settings: value.settings, 
+        }
+    }
+}
+
+pub fn to_scientific(num: u32) -> String {
+    if num == 0 {
+        return "0e0".to_string();
+    }
+
+    let s = num.to_string();
+    let exponent = s.len() - 1;
+
+    let mut mantissa = s[..1].to_string();
+
+    if s.len() > 1 {
+        let rest = &s[1..];
+        let trimmed = &rest[..rest.len().min(3)];
+        if !trimmed.chars().all(|c| c == '0') {
+            mantissa.push('d');
+            mantissa.push_str(trimmed);
+            mantissa = mantissa.trim_end_matches('0').to_string();
+        }
+    }
+
+    format!("{}e{}", mantissa, exponent)
+}
+
+pub fn generate_uid() -> String {
+    const LENGTH: usize = 9;
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let mut rng = thread_rng();
+
+    (0..LENGTH)
+        .map(|i| {
+            let idx = rng.gen_range(0..CHARSET.len());
+            let char_val = CHARSET[idx] as char;
+            if i > 0 && (i + 1) % 5 == 0 {
+                '-'
+            } else {
+                char_val
+            }
+        })
+        .collect::<String>()
+}
+
+fn get_next_free_id(map: &HashMap<u32, SharedJob>) -> u32 {
+    (u32::MIN..u32::MAX)
+        .find(|&id| !map.contains_key(&id))
+        .expect("Job ID space exhausted")
+}
+
+pub async fn create_job(settings: RecorderSettings, shared_job_map: SharedJobMap) -> SharedJob {
+    let mut hashmap = shared_job_map.lock().await;
+    let job_id: u32 = get_next_free_id(&hashmap);
+
+    let job = Job::new(job_id, settings);
+
+    let shared_job: SharedJob = Arc::new(Mutex::new(job));
+
+    hashmap.insert(job_id, shared_job.clone());
+
+    shared_job
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    mod recorder_settings {
+        use super::*;
+
+        #[test]
+        fn zoom_too_high() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG, 
+                10_000_000, 
+                32, 
+                10, 
+                None
+            );
+            assert!(matches!(settings.validate(), Err(RecorderSettingsError::ZoomTooHigh)));
+        }
+
+        #[test]
+        fn zoom_max_boundary() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                15_000_000,
+                31,
+                10,
+                None
+            );
+            assert!(settings.validate().is_ok());
+        }
+
+        #[test]
+        fn zoom_min_boundary() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                15_000_000,
+                0,
+                10,
+                None
+            );
+            assert!(settings.validate().is_ok());
+        }
+
+        #[test]
+        fn frequency_above_max() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                16_681_359,
+                0,
+                10,
+                None
+            );
+            assert!(matches!(settings.validate(), Err(RecorderSettingsError::FrequencyAboveMax)));
+        }
+
+        #[test]
+        fn frequency_below_min() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                147_500,
+                2,
+                10,
+                None
+            );
+            assert!(matches!(settings.validate(), Err(RecorderSettingsError::FrequencyBelowMin)));
+        }
+
+        #[test]
+        fn frequency_within_bounds() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                15_000_000,
+                0,
+                10,
+                None
+            );
+            assert!(settings.validate().is_ok());
+        }
+
+        #[test]
+        fn filename_format_png() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                947_500,
+                10,
+                10,
+                None
+            );
+            let filename = settings.get_filename("UID123");
+            assert!(filename.contains("UID123"));
+            assert!(filename.contains("Fq9d475e5")); // scientific format
+            assert!(filename.contains("Zm10")); // zoom included
+        }
+
+        #[test]
+        fn filename_format_iq() {
+            let settings = RecorderSettings::new(
+                RecordingType::IQ,
+                16_490_000,
+                2,
+                10,
+                None
+            );
+            let filename = settings.get_filename("UID123");
+            assert!(filename.contains("UID123"));
+            assert!(filename.contains("Fq1d649e7"));
+            assert!(filename.contains("Bw1d2e4"));
+        }
+
+        #[test]
+        fn as_args_png() {
+            let settings = RecorderSettings::new(
+                RecordingType::PNG,
+                10_000_000,
+                5,
+                10,
+                None
+            );
+            let args = settings.as_args("UID123");
+            assert!(args.contains(&"--wf".to_string()));
+            assert!(args.contains(&"--wf-png".to_string()));
+            assert!(args.contains(&"--zoom=5".to_string()));
+        }
+
+        #[test]
+        fn as_args_iq() {
+            let settings = RecorderSettings::new(
+                RecordingType::IQ,
+                10_000_000,
+                0,
+                10,
+                None
+            );
+            let args = settings.as_args("UID123");
+            assert!(args.contains(&"--kiwi-wav".to_string()));
+            assert!(args.contains(&"--modulation=iq".to_string()));
+        }
+    }
+
+    mod log {
+        use super::*;
+
+        #[test]
+        fn get_truncated_1() {
+            let input = Log {
+                timestamp: 147_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ultrices scelerisque mi, eget molestie ipsum vestibulum tristique. Nulla vitae mi.".into(),
+            };
+            let output = Log {
+                timestamp: 147_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ultrices scelerisque mi, eget molestie ipsum vestibulum tristique. Nulla vitae mi.".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
+
+        #[test]
+        fn get_truncated_2() {
+            let input = Log {
+                timestamp: 200_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur lacinia congue dui at euismod. Etiam sed lorem sit amet odio sollicitudin feugiat. Phasellus risus leo, fermentum et posuere at orci.".into(),
+            };
+            let output = Log {
+                timestamp: 200_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur lacinia congue dui at euismod. Etiam sed lorem sit amet odio sollicitudin feugiat. Phasellus risus leo, fermentum et posuere at orci.".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
+
+        #[test]
+        fn get_truncated_3() {
+            let input = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales ligula leo, sed tempus velit vehicula eget. Morbi orci eros, commodo cursus sapien vitae, fringilla blandit orci. Praesent eget 
+                    velit id velit sollicitudin elementum. Proin sed efficitur dolor, quis porta nulla. Pellentesque ac libero sed tortor tempor tincidunt. Integer condimentum risus sed ipsum tempus feugiat. Nulla lacinia velit 
+                    sed nunc vulputate, at sagittis mi convallis. Donec ultrices, metus nec rhoncus porttitor.".into(),
+            };
+            let output = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales ligula leo, sed tempus velit vehicula eget. Morbi orci eros, commodo cursus sapien vitae, fringilla blandit orci. Praesent ege...".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
+
+        #[test]
+        fn get_truncated_4() { // Test cutting multibyte utf8 chars
+            let input = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie hendrerit scelerisque. Varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. A multibyte UTF-8 char: 𒈙, right at the border.".into(),
+            };
+            let output = Log {
+                timestamp: 500_000,
+                data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie hendrerit scelerisque. Varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. A multibyte UTF-8 char: 𒈙...".into(),
+            };
+        
+            assert_eq!(input.get_truncated(), output)
+        }
+    }
+
+    mod utils {
+        use super::*;
+
+        #[test]
+        fn generate_uid_length() {
+            const LENGTH: usize = 9;
+
+            let uid = generate_uid();
+            assert!(uid.chars().count() == LENGTH)
+        }
+
+        #[test]
+        fn generate_uid_charset() {
+            const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-";
+
+            let uid = generate_uid();
+
+            assert!(
+                uid.bytes().all(|b| CHARSET.contains(&b)),
+                "UID contains invalid characters: {uid}"
+            );
+        }
+
+        #[test]
+        fn generate_uid_hyphen() {
+            let uid = generate_uid();
+            let bytes = uid.as_bytes();
+            let byte = bytes[4];
+            const TARGET: u8 = b"-"[0];
+            assert_eq!(byte, TARGET);
+        }
+
+        #[test]
+        fn to_scientific_1() {
+            const NUMBER: u32 = 147_500;
+            const OUTPUT: &str = "1d475e5";
+
+            let scientific = to_scientific(NUMBER);
+            assert_eq!(scientific, OUTPUT);
+        }
+
+        #[test]
+        fn to_scientific_2() {
+            const NUMBER: u32 = 123_456_789;
+            const OUTPUT: &str = "1d234e8";
+
+            let scientific = to_scientific(NUMBER);
+            assert_eq!(scientific, OUTPUT);
+        }
+
+        #[test]
+        fn to_scientific_3() {
+            const NUMBER: u32 = 30_000_000;
+            const OUTPUT: &str = "3e7";
+
+            let scientific = to_scientific(NUMBER);
+            assert_eq!(scientific, OUTPUT);
+        }
+    }
+}
