@@ -283,7 +283,7 @@ impl Job {
         let now = Utc::now().timestamp() as u64;
 
         self.status == JobStatus::Idle
-        && self.next_run_start.unwrap_or(0) <= now 
+        && self.next_run_start.unwrap_or(u64::MAX) <= now 
         && self.process.is_none()
     }
 
