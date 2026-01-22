@@ -5,97 +5,101 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KiwiRecorder</title>
   <link rel="stylesheet" href="stylesheet.css">
+  <script src="recorder.js"></script>
 </head>
 <body>
   <div class="background"></div>
-  <div class="center">
-    <h1>KiwiRecorder</h1>
-    <span class="checking" id="api-status">API Status: Checking...</span>
+  <header>
+    123abc
+  </header>
+  <main>
+    <div class="center">
+      <h1>KiwiRecorder</h1>
+      <span class="checking" id="api-status">API Status: Checking...</span>
 
-    <form id="create-job-form">
-      <div class="field-group">
-        <h2>Create New Job</h2>
-        <div class="field">
-          <label for="rec_type">Record Type:</label>
-          <select id="rec_type" name="rec_type">
-            <option value="png">PNG (Waterfall)</option>
-            <option value="iq">IQ (Raw Data)</option>
-          </select>
+      <form id="create-job-form">
+        <div class="field-group">
+          <h2>Create New Job</h2>
+          <div class="field">
+            <label for="rec_type">Record Type:</label>
+            <select id="rec_type" name="rec_type">
+              <option value="png">PNG (Waterfall)</option>
+              <option value="iq">IQ (Raw Data)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="frequency">Frequency (kHz):</label>
+            <input type="number" id="frequency" name="frequency" value="40" step="0.1" min="0" max="30000" required>
+          </div>
+          <div class="field">
+            <label for="zoom">Zoom (0-14):</label>
+            <input type="number" id="zoom" name="zoom" value="10" step="1" min="0" max="14" required>
+          </div>
+          <div class="field">
+            <label for="duration">Duration (s):</label>
+            <input type="number" id="duration" name="duration" step="1" value="20" min="0" max="3600" required>
+          </div>
+          <div class="field">
+            <label for="interval">Interval (s):</label>
+            <input type="number" id="interval" name="interval" step="1" placeholder="Once" min="60" max="86400">
+          </div>
+          <div id="freq-range">
+            Range: ---- Hz - ---- Hz 
+          </div>
+          <div id="bandwidth"> 
+            Bandwidth: ---- Hz
+          </div>
+          <div id="warning" class="warning"> 
+            
+          </div>
+          <button type="submit" id="create-job-btn">Start Job</button>
         </div>
-        <div class="field">
-          <label for="frequency">Frequency (kHz):</label>
-          <input type="number" id="frequency" name="frequency" value="40" step="0.1" min="0" max="30000" required>
-        </div>
-        <div class="field">
-          <label for="zoom">Zoom (0-14):</label>
-          <input type="number" id="zoom" name="zoom" value="10" step="1" min="0" max="14" required>
-        </div>
-        <div class="field">
-          <label for="duration">Duration (s):</label>
-          <input type="number" id="duration" name="duration" step="1" value="20" min="0" max="3600" required>
-        </div>
-        <div class="field">
-          <label for="interval">Interval (s):</label>
-          <input type="number" id="interval" name="interval" step="1" placeholder="Once" min="60" max="86400">
-        </div>
-        <div id="freq-range">
-          Range: ---- Hz - ---- Hz 
-        </div>
-        <div id="bandwidth"> 
-          Bandwidth: ---- Hz
-        </div>
-        <div id="warning" class="warning"> 
-          
-        </div>
-        <button type="submit" id="create-job-btn">Start Job</button>
-      </div>
-    </form>
-    
-    <div class="job-status-div">
-      <h2>Active Jobs</h2>
-      <div class="table-container">
-        <table id="jobs-table">
-          <thead>
-            <tr>
-              <th>Job UID</th>
-              <th>Status</th>
-              <th>Settings</th>
-              <th>Started</th>
-              <th>Next Run</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="jobs-table-body">
-            <!-- Jobs will be populated here by JS -->
-             <tr>
-              <td colspan="10" style="text-align:center;">No active jobs found.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div id="log-modal" class="modal" style="display: none">
-    <div class="modal-content">
-      <div class="modal-top">
-        <h2 class="modal-header" id="log-modal-title" >Job Logs</h2>
-        <span class="modal-close" id="log-modal-close">&times;</span>
-      </div>
-      <div class="table-container">
-        <table class="log-table">
-          <thead>
-            <tr>
-              <th style="width: 150px;">Timestamp</th>
-              <th>Message</th>
-            </tr>
-          </thead>
-          <tbody id="log-table-body">
+      </form>
+      
+      <div class="job-status-div">
+        <h2>Active Jobs</h2>
+        <div class="table-container">
+          <table id="jobs-table">
+            <thead>
+              <tr>
+                <th>Job UID</th>
+                <th>Status</th>
+                <th>Settings</th>
+                <th>Started</th>
+                <th>Next Run</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="jobs-table-body">
+              <!-- Jobs will be populated here by JS -->
+              <tr>
+                <td colspan="10" style="text-align:center;">No active jobs found.</td>
+              </tr>
             </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     </div>
-  </div>
-
-  <script src="recorder.js"></script>
+    <div id="log-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-top">
+          <h2 class="modal-header" id="log-modal-title" >Job Logs</h2>
+          <span class="modal-close" id="log-modal-close">&times;</span>
+        </div>
+        <div class="table-container">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th style="width: 150px;">Timestamp</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="log-table-body">
+              </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
 </body>
 </html>
