@@ -20,9 +20,18 @@
 body {
   font-family: 'Helvetica', sans-serif;
   font-size: 1.2em;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  margin: 0;
+}
+header {
+  background-color: var(--main-color-medium);
+  color: var(--text-color-bright);
+  padding: 1rem;
+}
+main {
   text-align: center;
   padding: 5%;
-  background-color: var(--main-color-dark);
   color: var(--text-color-muted);
 }
 h1 {
