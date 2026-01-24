@@ -38,8 +38,13 @@ Generate a key (if you don't have one) (on your laptop, not the kiwi)
 ssh-keygen -t ed25519 -C "email@example.com"
 ```
 Setup ssh key for `debian` user  
+From linux:
 ```bash
 ssh-copy-id debian@kiwisdr.local
+```
+From windows:
+```powershell
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh debian@kiwisdr.local "cat >> .ssh/authorized_keys"
 ```
 #### (Optional) Setup root ssh keys  
 Allow direct root login over ssh (on the Kiwi)  
