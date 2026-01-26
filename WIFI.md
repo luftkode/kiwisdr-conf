@@ -1,4 +1,5 @@
 # WiFi Setup
+## Building drivers from source
 ### Supported environment:
 #### System:
 ```
@@ -18,7 +19,7 @@ root@kiwisdr:~# hostnamectl
 ```
 #### WiFi card:
  - [TL-WN722N v2/v3 (Realtek RTL8188EU)](https://www.dustin.dk/product/5011024916/tl-wn722n-usb-wifi-adapter)
-## Building from source
+### Guide
 #### 1. Install dependencies
 ```bash
 apt update
@@ -53,4 +54,31 @@ dkms install realtek-rtl8188eus/5.3.9~20221105
 #### 6. Reboot
 ```bash
 reboot
+```
+## Using WiFi
+#### 1. Install `connman`
+```bash
+apt install connman
+```
+#### 2. Open the connman` shell
+```bash
+connmanctl
+```
+#### 3. Scan wifi networks
+```connmanctl
+enable wifi          # Powers on the USB dongle
+scan wifi            # Scans for wifis (Wait for "Scan completed" message)
+services             # List available networks
+```
+Find your network's Service ID (it looks like `wifi_xxxxxx_managed_psk`) and copy it 
+#### 4. Connect
+```connmanctl
+agent on                                # Enables password entry
+connect <PASTE_YOUR_SERVICE_ID_HERE>    # Use Tab to autocomplete
+# Enter your WiFi password when prompted
+quit
+```
+#### 5. Test connection
+```bash
+ip a
 ```
