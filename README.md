@@ -76,7 +76,8 @@ Mark the key as trusted (Only if you actualy trust the key):
 ```bash
 gpg --import-ownertrust <<< "846475029CE00982F700C9AC3CB2F77A8047BEDC:3:"
 ```
-> ⚠️ **Warning:** Only mark a key as trusted if you trust the person the key belongs to, and that the key is actually that person's key (eg. somebody hacked Github and replaced the key with their key).
+> [!CAUTION]
+> Only mark a key as trusted if you trust the person the key belongs to, and that the key is actually that person's key (eg. somebody hacked Github and replaced the key with their key).
 
 ### Install
 Download the repository and run setup.sh:
@@ -92,7 +93,8 @@ sudo ./setup.sh
 ```
 
 Now you can go to [https://kiwisdr.local/help](https://kiwisdr.local/help)
-> ℹ️ **Note:** The TLS cert is Signed by KiwiCA. If you want the KiwiCA certificate run:  
+> [!NOTE]
+> The TLS cert is Signed by KiwiCA. If you want the KiwiCA certificate run:  
 >  ```bash
 > scp debian@kiwisdr.local:/etc/ssl/kiwisdr/ca/KiwiCA.pem ./
 >  ```
