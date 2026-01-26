@@ -111,3 +111,5 @@ Admin email:
 ```
 it@skytem.com
 ```
+## WiFI
+See [WIFI.md](https://github.com/luftkode/kiwisdr-conf/blob/main/WIFI.md)
