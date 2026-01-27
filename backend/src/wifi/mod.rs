@@ -293,3 +293,19 @@ pub mod model {
         }
     }
 }
+
+use crate::wifi::model::ServiceState;
+use crate::wifi::error::Result as WifiResult;
+
+#[allow(async_fn_in_trait)] // I will never use "dyn Wifi"
+pub trait Wifi {
+    /// List available Wi-Fi networks (ServiceState for each)
+    async fn get_available(&self) -> WifiResult<Vec<ServiceState>>;
+
+    /// Connect to a Wi-Fi network by uid
+    /// Optional passphrase for open vs WPA/WPA2 networks
+    async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()>;
+
+    /// Disconnect from a Wi-Fi network by uid
+    async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()>;
+}
