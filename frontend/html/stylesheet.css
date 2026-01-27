@@ -27,7 +27,6 @@ body {
 header {
   background-color: var(--main-color-dark);
   color: var(--text-color-bright);
-  padding: 0.8rem;
   display: grid;
   grid-template-columns: 1fr auto 1fr;
 }
@@ -36,12 +35,11 @@ main {
   padding: 5%;
   color: var(--text-color-muted);
 }
-header .logo {
-  
-}
 header nav {
+  padding: 0.8rem;
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 header nav a {
   color: var(--text-color-bright);
@@ -432,6 +430,23 @@ input:disabled {
   }
   .modal-content {
     background-color: var(--main-color-light);
+  }
+  header {
+    background-color: var(--main-color-light);
+    color: var(--text-color-bright);
+  }
+  header nav a {
+    color: var(--text-color-bright);
+    border: 2px solid var(--main-color-dark);
+    background-color: var(--main-color-medium);
+  }
+  header nav a:hover {
+    border-color: var(--accent-color);
+    background-color: var(--main-color-medium-hover);
+  }
+  header nav a:focus {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-color-shadow);
   }
 }
 @media (max-width:960px) {
