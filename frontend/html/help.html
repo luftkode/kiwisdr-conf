@@ -8,74 +8,86 @@
 </head>
 <body>
 	<div class="background"></div>
-	<h1>Help!</h1>
-	<div class="center">
-		<div class="grid">
-			<a class="card" href="/" aria-label="Card 1">
-				<div class="card-media">
-					<picture>
-						<source srcset="media/kiwisdr-light.webp" media="(prefers-color-scheme: light)"> <!-- Light mode -->
-						<img src="media/kiwisdr-dark.webp" alt="KiwiSDR" style="width:100%; height:100%; object-fit:cover;"> <!-- Dark mode / default -->
-					</picture>
-				</div>
-				<div class="card-title">KiwiSDR</div>
-				<div class="card-body">Tune in to your favorite AM radio stations with ease, or monitor those pesky VLF signals.</div>
-			</a>
+	<header>
+		<div></div>
+		<nav>
+			<a href="/help">Home</a>
+			<a href="/">SDR</a>
+			<a href="/recorder">Recorder</a>
+			<a href="/recorder/download">Files</a>
+		</nav>
+		<div></div>
+	</header>
+	<main>
+		<h1>Help!</h1>
+		<div class="center">
+			<div class="grid">
+				<a class="card" href="/" aria-label="Card 1">
+					<div class="card-media">
+						<picture>
+							<source srcset="media/kiwisdr-light.webp" media="(prefers-color-scheme: light)"> <!-- Light mode -->
+							<img src="media/kiwisdr-dark.webp" alt="KiwiSDR" style="width:100%; height:100%; object-fit:cover;"> <!-- Dark mode / default -->
+						</picture>
+					</div>
+					<div class="card-title">KiwiSDR</div>
+					<div class="card-body">Tune in to your favorite AM radio stations with ease, or monitor those pesky VLF signals.</div>
+				</a>
 
-			<a class="card" href="/recorder" aria-label="Card 2">
-				<div class="card-media">
-					<picture>
-						<source srcset="media/recorder-light.webp" media="(prefers-color-scheme: light)">
-						<img src="media/recorder-dark.webp" alt="KiwiRecorder" style="width:100%; height:100%; object-fit:cover;">
-					</picture>
-				</div>
-				<div class="card-title">KiwiRecorder</div>
-				<div class="card-body">Record those pesky VLF signals, or the occasional lightning strike.</div>
-			</a>
+				<a class="card" href="/recorder" aria-label="Card 2">
+					<div class="card-media">
+						<picture>
+							<source srcset="media/recorder-light.webp" media="(prefers-color-scheme: light)">
+							<img src="media/recorder-dark.webp" alt="KiwiRecorder" style="width:100%; height:100%; object-fit:cover;">
+						</picture>
+					</div>
+					<div class="card-title">KiwiRecorder</div>
+					<div class="card-body">Record those pesky VLF signals, or the occasional lightning strike.</div>
+				</a>
 
-			<a class="card" href="/recorder/download" aria-label="Card 3">
-				<div class="card-media">
-					<picture>
-						<source srcset="media/files-light.webp" media="(prefers-color-scheme: light)">
-						<img src="media/files-dark.webp" alt="KiwiFiles" style="width:100%; height:100%; object-fit:cover;">
-					</picture>
-				</div>
-				<div class="card-title">KiwiFiles</div>
-				<div class="card-body">Download your recorded VLF signals and lightning strikes.</div>
-			</a>
+				<a class="card" href="/recorder/download" aria-label="Card 3">
+					<div class="card-media">
+						<picture>
+							<source srcset="media/files-light.webp" media="(prefers-color-scheme: light)">
+							<img src="media/files-dark.webp" alt="KiwiFiles" style="width:100%; height:100%; object-fit:cover;">
+						</picture>
+					</div>
+					<div class="card-title">KiwiFiles</div>
+					<div class="card-body">Download your recorded VLF signals and lightning strikes.</div>
+				</a>
 
-			<a class="card" href="/admin" aria-label="Card 4">
-				<div class="card-media">
-					<picture>
-						<source srcset="media/admin-light.webp" media="(prefers-color-scheme: light)">
-						<img src="media/admin-dark.webp" alt="KiwiSDR Admin Panel" style="width:100%; height:100%; object-fit:cover;">
-					</picture>
-				</div>
-				<div class="card-title">KiwiSDR Admin Panel</div>
-				<div class="card-body">Manage your KiwiSDR settings and configurations with ease.</div>
-			</a>
+				<a class="card" href="/admin" aria-label="Card 4">
+					<div class="card-media">
+						<picture>
+							<source srcset="media/admin-light.webp" media="(prefers-color-scheme: light)">
+							<img src="media/admin-dark.webp" alt="KiwiSDR Admin Panel" style="width:100%; height:100%; object-fit:cover;">
+						</picture>
+					</div>
+					<div class="card-title">KiwiSDR Admin Panel</div>
+					<div class="card-body">Manage your KiwiSDR settings and configurations with ease.</div>
+				</a>
 
-			<a class="card" href="/api/" aria-label="Card 5">
-				<div class="card-media">
-					<picture>
-						<source srcset="media/api-light.webp" media="(prefers-color-scheme: light)">
-						<img src="media/api-dark.webp" alt="KiwiAPI" style="width:100%; height:100%; object-fit:cover;">
-					</picture>
-				</div>
-				<div class="card-title">KiwiAPI</div>
-				<div class="card-body">Check the status of the API.</div>
-			</a>
-			<a class="card" href="/help" aria-label="Card 6">
-				<div class="card-media">
-					<picture>
-						<source srcset="media/help-light.webp" media="(prefers-color-scheme: light)">
-						<img src="media/help-dark.webp" alt="KiwiHelp" style="width:100%; height:100%; object-fit:cover;">
-					</picture>
-				</div>
-				<div class="card-title">KiwiHelp</div>
-				<div class="card-body">The page you are currently on.</div>
-			</a>
+				<a class="card" href="/api/" aria-label="Card 5">
+					<div class="card-media">
+						<picture>
+							<source srcset="media/api-light.webp" media="(prefers-color-scheme: light)">
+							<img src="media/api-dark.webp" alt="KiwiAPI" style="width:100%; height:100%; object-fit:cover;">
+						</picture>
+					</div>
+					<div class="card-title">KiwiAPI</div>
+					<div class="card-body">Check the status of the API.</div>
+				</a>
+				<a class="card" href="/help" aria-label="Card 6">
+					<div class="card-media">
+						<picture>
+							<source srcset="media/help-light.webp" media="(prefers-color-scheme: light)">
+							<img src="media/help-dark.webp" alt="KiwiHelp" style="width:100%; height:100%; object-fit:cover;">
+						</picture>
+					</div>
+					<div class="card-title">KiwiHelp</div>
+					<div class="card-body">The page you are currently on.</div>
+				</a>
+			</div>
 		</div>
-	</div>
+	</main>
 </body>
 </html>

@@ -1,5 +1,40 @@
-<a href="/help">
-  <div style="display: flex; justify-content: center; align-items: center; height: 67px;">
+<style>
+  :root {
+    --main-color-dark: #aaaaaa;
+    --main-color-medium: #cccccc;
+    --main-color-light: #ffffff;
+    --accent-color: #ff0000;
+    --accent-color-shadow: rgba(255, 0, 0, 0.3);
+    --text-color-bright: #1e1e1e;
+    --text-color-muted: #2e2e2e;
+    --main-color-medium-hover: #eeeeee;
+  }
+  nav a {
+    color: var(--text-color-bright);
+    justify-content: center;
+    margin-left: 0.3rem;
+    margin-right: 0.3rem;
+    text-decoration: none;
+    padding: 0.4rem 1.4rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+    border: 2px solid var(--main-color-light);
+    background-color: var(--main-color-medium);
+  }
+  nav a:hover {
+    border-color: var(--accent-color);
+    background-color: var(--main-color-medium-hover);
+  }
+  nav a:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-color-shadow);
+  }
+</style>
+<div style="display: grid; grid-template-columns: auto auto;">
+  <div style="display: flex; justify-content: center; align-items: center; height: 67px; margin-right: 8px;">
     <svg max-width="150" height="59" viewBox="0 0 232 104" fill="none" xmlns="http://www.w3.org/2000/svg"> 
       <g clip-path="url(#clip0_657_2981)"> 
       <path d="M59.9227 71.4765C58.6278 77.794 59.2056 83.7141 61.8949 88.8396C72.5726 109.103 112.693 109.063 151.519 88.7204C190.326 68.3972 213.135 35.4589 202.457 15.1754C191.78 -5.10805 151.659 -5.04845 112.833 15.2946C104.048 19.8639 95.7606 25.3271 88.091 31.6049C94.406 26.5787 101.159 22.0889 108.251 18.2348C143.033 0.0174568 178.712 0.494247 187.955 18.0362C197.178 35.5781 176.5 64.563 141.698 82.8003C106.916 101.038 71.2179 101.574 61.9945 84.0518C60.0024 80.1779 59.2653 75.7875 59.9227 71.4964" fill="#96999C"></path> 
@@ -11,4 +46,10 @@
       </g> <defs> <clipPath id="clip0_657_2981"> <rect width="232" height="104" fill="white"></rect> </clipPath> </defs> 
     </svg>
   </div>
-</a>
+  <nav style="display: flex; justify-content: center; align-items: center">
+    <a href="/help">Home</a>
+    <a href="/">SDR</a>
+    <a href="/recorder">Recorder</a>
+    <a href="/recorder/download">Files</a>
+  </nav>
+</div>

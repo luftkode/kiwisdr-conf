@@ -5,28 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>KiwiFiles</title>
   <link rel="stylesheet" href="/stylesheet.css">
+  <script src="download.js"></script>
 </head>
 <body>
 	<div class="background"></div>
-	<h1>KiwiFiles</h1>
-	<p>Browse and download your recordings below:</p>
+	<header>
+		<div></div>
+		<nav>
+			<a href="/help">Home</a>
+			<a href="/">SDR</a>
+			<a href="/recorder">Recorder</a>
+			<a href="/recorder/download">Files</a>
+		</nav>
+		<div></div>
+	</header>
+	<main>
+		<h1>KiwiFiles</h1>
+		<p>Browse and download your recordings below:</p>
 
-	<div class="table-container">
-		<table id="file-table">
-			<thead>
-				<tr>
-					<th>Filename</th>
-					<th>Date & Time</th>
-					<th>Size</th>
-					<th>Download</th>
-				</tr>
-			</thead>
-			<tbody>
-			<!-- JS will inject rows here -->
-			</tbody>
-		</table>
-	</div>
-
-  <script src="download.js"></script>
+		<div class="table-container">
+			<table id="file-table">
+				<thead>
+					<tr>
+						<th>Filename</th>
+						<th>Date & Time</th>
+						<th>Size</th>
+						<th>Download</th>
+					</tr>
+				</thead>
+				<tbody>
+				<!-- JS will inject rows here -->
+				</tbody>
+			</table>
+		</div>
+	</main>
 </body>
 </html>

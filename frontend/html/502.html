@@ -5,16 +5,28 @@
   <title>502 Bad Gateway</title>
   <link rel="stylesheet" href="/stylesheet.css">
   <script>
-    // Auto-refresh every 10 seconds
     setTimeout(() => { window.location.reload(); }, 5000);
+    // Auto-refresh every 5 seconds
   </script>
 </head>
 <body>
   <div class="background"></div>
-  <h1>502 Bad Gateway</h1>  
-  <p>The KiwiSDR WebUI isn’t responding right now.</p>
-  <p>If You just booted the KiwiSDR, please wait.</p>
-  <p>This page will auto-refresh.</p>
-  <button onclick="window.location.reload();">Try Again Now</button>
+  <header>
+    <div></div>
+    <nav>
+      <a href="/help">Home</a>
+      <a href="/">SDR</a>
+      <a href="/recorder">Recorder</a>
+      <a href="/recorder/download">Files</a>
+    </nav>
+    <div></div>
+  </header>
+  <main>
+    <h1>502 Bad Gateway</h1>  
+    <p>The KiwiSDR WebUI isn't responding right now.</p>
+    <p>If You just booted the KiwiSDR, please wait.</p>
+    <p>This page will auto-refresh.</p>
+    <button onclick="window.location.reload();">Try Again Now</button>
+  </main>
 </body>
 </html>
