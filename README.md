@@ -70,7 +70,7 @@ Edit `Admin password`
 ### Add key
 Add public.key to your keyring:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Ultraegern/kiwisdr-conf/refs/heads/main/public.key | gpg --import
+curl -fsSL https://raw.githubusercontent.com/luftkode/kiwisdr-conf/refs/heads/main/public.key | gpg --import
 ```
 Mark the key as trusted (Only if you actualy trust the key):
 ```bash
@@ -82,7 +82,7 @@ gpg --import-ownertrust <<< "846475029CE00982F700C9AC3CB2F77A8047BEDC:3:"
 ### Install
 Download the repository and run setup.sh:
 ```bash
-curl -fsSL https://github.com/Ultraegern/kiwisdr-conf/archive/refs/heads/main.zip -o /tmp/kiwisdr-conf.zip && \
+curl -fsSL https://github.com/luftkode/kiwisdr-conf/archive/refs/heads/main.zip -o /tmp/kiwisdr-conf.zip && \
 sudo apt install unzip -qq 1>/dev/null && \
 unzip -qq /tmp/kiwisdr-conf.zip -d /tmp/ && \
 rm /tmp/kiwisdr-conf.zip && \
@@ -106,7 +106,7 @@ Top bar title:
 ```
 KiwiSDR by SkyTEM Surveys ApS
 ```
-Owner info: [Copy this file](https://github.com/Ultraegern/kiwisdr-conf/blob/main/header.html)  
+Owner info: [Copy this file](https://github.com/luftkode/kiwisdr-conf/blob/main/header.html)  
 Grid square: Continuous update from GPS: `true`  
 Location: Continuous update from GPS: `Hi Res`  
 Admin email:
