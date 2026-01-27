@@ -23,9 +23,9 @@ pub mod error {
 }
 
 pub mod model {
+    use crate::wifi::connman::error::ConnManError;
     use serde::Serialize;
     use std::net::{Ipv4Addr, Ipv6Addr};
-    use crate::wifi::connman::error::ConnManError;
 
     #[derive(Debug, Clone, Serialize)]
     pub struct ServiceState {
@@ -33,7 +33,7 @@ pub mod model {
         state: ServiceStateKind,
         strength: Option<u8>,
         ipv4: Option<Ipv4Connection>,
-        ipv6: Option<Ipv6Connection>
+        ipv6: Option<Ipv6Connection>,
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -48,7 +48,6 @@ pub mod model {
         Failure,
     }
 
-
     #[derive(Debug, Clone)]
     pub struct Ipv4Connection {
         address: Ipv4Addr,
@@ -62,7 +61,7 @@ pub mod model {
         prefix: u8,
         gateway: Option<Ipv6Addr>,
     }
-    
+
     impl ServiceState {
         pub fn name(&self) -> &str {
             &self.name
@@ -129,12 +128,12 @@ pub mod model {
             format!("{}/{}", self.address, self.prefix)
         }
     }
-    
+
     impl Serialize for Ipv4Connection {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
-        {   
+        {
             use serde::ser::SerializeStruct;
 
             let mut s = serializer.serialize_struct("Ipv4Connection", 2)?;
@@ -148,7 +147,7 @@ pub mod model {
         fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
-        {   
+        {
             use serde::ser::SerializeStruct;
 
             let mut s = serializer.serialize_struct("Ipv6Connection", 2)?;
@@ -178,7 +177,7 @@ pub mod model {
     #[cfg(test)]
     mod tests {
         use super::*;
-        
+
         mod ipv4 {
             use super::*;
             use serde_json::json;
@@ -225,7 +224,7 @@ pub mod model {
                 );
             }
         }
-        
+
         mod ipv6 {
             use super::*;
             use serde_json::json;
@@ -235,8 +234,7 @@ pub mod model {
             fn host_cidr_is_correct() {
                 let ipv6 = Ipv6Connection {
                     address: Ipv6Addr::new(
-                        0x2001, 0x0db8, 0x0000, 0x0000,
-                        0x0000, 0x0000, 0xdead, 0xbeef,
+                        0x2001, 0x0db8, 0x0000, 0x0000, 0x0000, 0x0000, 0xdead, 0xbeef,
                     ),
                     prefix: 64,
                     gateway: None,
@@ -249,13 +247,11 @@ pub mod model {
             fn serialization_shape_is_stable() {
                 let ipv6 = Ipv6Connection {
                     address: Ipv6Addr::new(
-                        0xfe80, 0x0000, 0x0000, 0x0000,
-                        0x0000, 0x0000, 0x0000, 0x0001,
+                        0xfe80, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001,
                     ),
                     prefix: 64,
                     gateway: Some(Ipv6Addr::new(
-                        0xfe80, 0x0000, 0x0000, 0x0000,
-                        0x0000, 0x0000, 0x0000, 0x00ff,
+                        0xfe80, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x00ff,
                     )),
                 };
 
