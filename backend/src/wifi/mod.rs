@@ -28,7 +28,7 @@ pub mod model {
 
     #[derive(Debug, Clone, Serialize)]
     pub struct ServiceState {
-        name: String,
+        wifi_uid: String,
         state: ServiceStateKind,
         strength: Option<u8>,
         ipv4: Option<Ipv4Connection>,
@@ -62,8 +62,8 @@ pub mod model {
     }
 
     impl ServiceState {
-        pub fn name(&self) -> &str {
-            &self.name
+        pub fn wifi_uid(&self) -> &str {
+            &self.wifi_uid
         }
 
         pub fn state(&self) -> ServiceStateKind {
