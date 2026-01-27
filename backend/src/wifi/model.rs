@@ -81,11 +81,11 @@ impl Ipv4Connection {
         prefix: u8,
         gateway: Ipv4Addr,
     ) -> Self {
-        Self(
+        Self {
             address,
             prefix,
             gateway,
-        )
+        }
     }
 
     pub fn address(&self) -> Ipv4Addr {
@@ -120,11 +120,11 @@ impl Ipv6Connection {
         prefix: u8,
         gateway: Option<Ipv6Addr>,
     ) -> Self {
-        Self(
+        Self {
             address,
             prefix,
             gateway,
-        )
+        }
     }
 
     pub fn address(&self) -> Ipv6Addr {
