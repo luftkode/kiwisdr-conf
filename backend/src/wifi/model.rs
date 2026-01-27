@@ -38,6 +38,22 @@ pub struct Ipv6Connection {
 }
 
 impl ServiceState {
+    pub fn new(
+        wifi_uid: String,
+        state: ServiceStateKind,
+        strength: Option<u8>,
+        ipv4: Option<Ipv4Connection>,
+        ipv6: Option<Ipv6Connection>,
+    ) -> Self {
+        Self {
+            wifi_uid,
+            state,
+            strength,
+            ipv4,
+            ipv6,
+        }
+    }
+
     pub fn wifi_uid(&self) -> &str {
         &self.wifi_uid
     }
@@ -60,6 +76,18 @@ impl ServiceState {
 }
 
 impl Ipv4Connection {
+    pub fn new(
+        address: Ipv4Addr,
+        prefix: u8,
+        gateway: Ipv4Addr,
+    ) -> Self {
+        Self(
+            address,
+            prefix,
+            gateway,
+        )
+    }
+
     pub fn address(&self) -> Ipv4Addr {
         self.address
     }
@@ -87,6 +115,18 @@ impl Ipv4Connection {
 }
 
 impl Ipv6Connection {
+    pub fn new(
+        address: Ipv6Addr,
+        prefix: u8,
+        gateway: Option<Ipv6Addr>,
+    ) -> Self {
+        Self(
+            address,
+            prefix,
+            gateway,
+        )
+    }
+
     pub fn address(&self) -> Ipv6Addr {
         self.address
     }
