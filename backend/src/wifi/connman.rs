@@ -54,11 +54,11 @@ use error::{ConnManError, Result};
 
 /// Thin connman wrapper
 mod client {
-    use super::error::{ConnManError, Result};
+    use super::error::Result;
     use super::consts::*;
     use zbus::{Connection, Proxy};
     
-    async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
+    pub async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
         Ok(
             Proxy::new(
                 conn,
