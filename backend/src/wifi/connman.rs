@@ -1,7 +1,20 @@
 mod consts {
-    pub const CONNMAN_PATH: &str = "/net/connman";
-    pub const CONNMAN_IFACE: &str = "net.connman";
+    /// D-Bus well-known name owned by the ConnMan daemon
+    pub const CONNMAN_DEST: &str = "net.connman";
+
+    /// Root object path of ConnMan
+    pub const CONNMAN_ROOT_PATH: &str = "/net/connman";
+
+    /// ConnMan manager interface (global operations)
+    pub const CONNMAN_MANAGER_IFACE: &str = "net.connman.Manager";
+
+    /// ConnMan service interface (Wi-Fi, Ethernet, etc.)
     pub const CONNMAN_SERVICE_IFACE: &str = "net.connman.Service";
+
+    /// ConnMan technology interface (wifi, ethernet, p2p)
+    pub const CONNMAN_TECH_IFACE: &str = "net.connman.Technology";
+
+    /// Standard D-Bus properties interface
     pub const DBUS_PROPERTIES_IFACE: &str = "org.freedesktop.DBus.Properties";
 
     pub const PROP_STATE: &str = "State";
