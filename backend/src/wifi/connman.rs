@@ -54,12 +54,26 @@ use error::{ConnManError, Result};
 
 /// Thin connman wrapper
 mod client {
-    todo!();
+    use super::error::{ConnManError, Result};
+    use super::consts::*;
+    use zbus::{Connection, Proxy};
+    
+    async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
+        Ok(
+            Proxy::new(
+                conn,
+                CONNMAN_DEST,
+                CONNMAN_ROOT_PATH,
+                CONNMAN_MANAGER_IFACE,
+            )
+            .await?
+        )
+    }
 }
 
 /// Translates dbus values into `ServiceState`
 mod translation {
-    todo!();
+    
 }
 
 pub struct ConnManConnection {
@@ -67,8 +81,12 @@ pub struct ConnManConnection {
 }
 
 impl ConnManConnection {
-    fn new() -> Self {
-        todo!()
+    /// Connects to the system D-Bus.
+    ///
+    /// This does not talk to ConnMan yet — it only opens the bus.
+    pub async fn new() -> Result<Self> {
+        let connection = zbus::Connection::system().await?;
+        Ok(Self { connection })
     }
 }
 
