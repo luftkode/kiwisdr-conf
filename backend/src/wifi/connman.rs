@@ -52,11 +52,15 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use crate::wifi::{Wifi, error::WifiError, model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind}};
 use error::{ConnManError, Result};
 
-/// Thin connman wrapper
+/// Thin connman dbus wrapper
+/// Acts like connmanctl
 mod client {
     use super::error::Result;
     use super::consts::*;
     use zbus::{Connection, Proxy};
+    use zvariant::{Value, OwnedObjectPath};
+
+    type DBusDict = HashMap<String, Value>;
     
     pub async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
         Ok(
@@ -68,6 +72,62 @@ mod client {
             )
             .await?
         )
+    }
+
+    pub async fn services(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
+
+    }
+
+    pub async fn technologies(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
+        
+    }
+
+    pub async fn service_connect(conn: &Connection, service_path: &str) -> Result<()> {
+        
+    }
+
+    pub async fn service_disconnect(conn: &Connection, service_path: &str) -> Result<()> {
+        
+    }
+
+    pub async fn service_config(conn: &Connection, service_path: &str, key: &str, value: Value) -> Result<()> {
+        
+    }
+
+    pub async fn service_remove(conn: &Connection, service_path: &str) -> Result<()> {
+        
+    }
+
+    pub async fn service_state(conn: &Connection, service_path: &str) -> Result<Value> {
+        
+    }
+
+    pub async fn service_show(conn: &Connection, service_path: &str) -> Result<DBusDict> {
+        
+    }
+
+    pub async fn technology_enable(conn: &Connection, technology_path: &str) -> Result<()> {
+        
+    }
+
+    pub async fn technology_disable(conn: &Connection, technology_path: &str) -> Result<()> {
+        
+    }
+
+    pub async fn technology_scan(conn: &Connection, technology_path: &str) -> Result<()> {
+        
+    }
+
+    pub async fn technology_show(conn: &Connection, technology_path: &str) -> Result<DBusDict> {
+        
+    }
+
+    pub async fn technology_tether(conn: &Connection, technology_path: &str, enabled: bool) -> Result<()> {
+        
+    }
+
+    pub async fn technology_set(conn: &Connection, technology_path: &str, key: &str, value: Value) -> Result<()> {
+        
     }
 }
 
