@@ -1,24 +1,22 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use serde_json::json;
 
+use crate::error::*;
 use crate::job::*;
 use crate::state::*;
-use crate::error::*;
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(status)
-       .service(start_recorder)
-       .service(stop_recorder)
-       .service(remove_recorder)
-       .service(recorder_status_all)
-       .service(recorder_status_one);
+        .service(start_recorder)
+        .service(stop_recorder)
+        .service(remove_recorder)
+        .service(recorder_status_all)
+        .service(recorder_status_one);
 }
 
 #[get("/api/")]
 async fn status() -> Result<impl Responder, ApiError> {
-    Ok(HttpResponse::Ok().body(
-        "Online"
-    ))
+    Ok(HttpResponse::Ok().body("Online"))
 }
 
 #[get("/api/recorder/status")]
@@ -38,7 +36,10 @@ async fn recorder_status_all(state: web::Data<AppState>) -> Result<impl Responde
 }
 
 #[get("/api/recorder/status/{job_id}")]
-async fn recorder_status_one(path: web::Path<u32>, state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
+async fn recorder_status_one(
+    path: web::Path<u32>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
     let job_id = path.into_inner();
 
     let shared_job = {
@@ -53,7 +54,10 @@ async fn recorder_status_one(path: web::Path<u32>, state: web::Data<AppState>) -
 }
 
 #[post("/api/recorder/start")]
-async fn start_recorder(payload: web::Json<RecorderSettings>, state: web::Data<AppState>, ) -> Result<impl Responder, ApiError> {
+async fn start_recorder(
+    payload: web::Json<RecorderSettings>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
     const MAX_JOB_SLOTS: usize = 3;
     let settings = payload.into_inner();
 
@@ -83,7 +87,10 @@ async fn start_recorder(payload: web::Json<RecorderSettings>, state: web::Data<A
 }
 
 #[post("/api/recorder/stop/{job_id}")]
-async fn stop_recorder(path: web::Path<u32>, state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
+async fn stop_recorder(
+    path: web::Path<u32>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
     let job_id = path.into_inner();
 
     let shared_job = {
@@ -95,12 +102,15 @@ async fn stop_recorder(path: web::Path<u32>, state: web::Data<AppState>) -> Resu
     Job::stop(shared_job.clone()).await?;
 
     let job_info = JobInfo::from(&*shared_job.lock().await);
-    
+
     Ok(HttpResponse::Ok().json(job_info))
 }
 
 #[delete("/api/recorder/{job_id}")]
-async fn remove_recorder(path: web::Path<u32>, state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
+async fn remove_recorder(
+    path: web::Path<u32>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
     let job_id = path.into_inner();
 
     let shared_job = {

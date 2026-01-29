@@ -15,11 +15,7 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            jobs: Arc::new(
-                Mutex::new(
-                    HashMap::new()
-                )
-            )
+            jobs: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
