@@ -49,7 +49,7 @@ pub mod error {
 }
 
 use std::net::{Ipv4Addr, Ipv6Addr};
-use crate::wifi::{Wifi, error::WifiError, model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind}};
+use crate::wifi::{Wifi, error::{WifiError, Result as WifiResult}, model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind}};
 use error::{ConnManError, Result};
 
 /// Thin connman dbus wrapper
@@ -57,12 +57,13 @@ use error::{ConnManError, Result};
 mod client {
     use super::error::Result;
     use super::consts::*;
+    use std::collections::HashMap;
     use zbus::{Connection, Proxy};
-    use zvariant::{Value, OwnedObjectPath};
+    use zvariant::{OwnedValue, OwnedObjectPath};
 
-    type DBusDict = HashMap<String, Value>;
+    type DBusDict = HashMap<String, OwnedValue>;
     
-    pub async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
+    async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
         Ok(
             Proxy::new(
                 conn,
@@ -74,60 +75,104 @@ mod client {
         )
     }
 
-    pub async fn services(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
+    async fn service_proxy<'a>(
+        conn: &'a Connection,
+        service_path: &'a OwnedObjectPath,
+    ) -> Result<Proxy<'a>> {
+        Ok(
+            Proxy::new(
+                conn,
+                CONNMAN_DEST,
+                service_path,
+                CONNMAN_SERVICE_IFACE,
+            )
+            .await?
+        )
+    }
 
+    async fn technology_proxy<'a>(
+        conn: &'a Connection,
+        technology_path: &'a OwnedObjectPath,
+    ) -> Result<Proxy<'a>> {
+        Ok(
+            Proxy::new(
+                conn,
+                CONNMAN_DEST,
+                technology_path,
+                CONNMAN_TECH_IFACE,
+            )
+            .await?
+        )
+    }
+
+    pub async fn services(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
+        todo!()
     }
 
     pub async fn technologies(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
-        
+        todo!()
     }
 
-    pub async fn service_connect(conn: &Connection, service_path: &str) -> Result<()> {
-        
+    pub async fn service_connect(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
+        todo!()
     }
 
-    pub async fn service_disconnect(conn: &Connection, service_path: &str) -> Result<()> {
-        
+    pub async fn service_disconnect(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
+        todo!()
     }
 
-    pub async fn service_config(conn: &Connection, service_path: &str, key: &str, value: Value) -> Result<()> {
-        
+    pub async fn service_config(
+        conn: &Connection,
+        service_path: &OwnedObjectPath,
+        key: &str,
+        value: OwnedValue,
+    ) -> Result<()> {
+        todo!()
     }
 
-    pub async fn service_remove(conn: &Connection, service_path: &str) -> Result<()> {
-        
+    pub async fn service_remove(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
+        todo!()
     }
 
-    pub async fn service_state(conn: &Connection, service_path: &str) -> Result<Value> {
-        
+    pub async fn service_state(conn: &Connection, service_path: &OwnedObjectPath) -> Result<OwnedValue> {
+        todo!()
     }
 
-    pub async fn service_show(conn: &Connection, service_path: &str) -> Result<DBusDict> {
-        
+    pub async fn service_properties(conn: &Connection, service_path: &OwnedObjectPath) -> Result<DBusDict> {
+        todo!()
     }
 
-    pub async fn technology_enable(conn: &Connection, technology_path: &str) -> Result<()> {
-        
+    pub async fn technology_enable(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<()> {
+        todo!()
     }
 
-    pub async fn technology_disable(conn: &Connection, technology_path: &str) -> Result<()> {
-        
+    pub async fn technology_disable(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<()> {
+        todo!()
     }
 
-    pub async fn technology_scan(conn: &Connection, technology_path: &str) -> Result<()> {
-        
+    pub async fn technology_scan(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<()> {
+        todo!()
     }
 
-    pub async fn technology_show(conn: &Connection, technology_path: &str) -> Result<DBusDict> {
-        
+    pub async fn technology_properties(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<DBusDict> {
+        todo!()
     }
 
-    pub async fn technology_tether(conn: &Connection, technology_path: &str, enabled: bool) -> Result<()> {
-        
+    pub async fn technology_tether(
+        conn: &Connection,
+        technology_path: &OwnedObjectPath,
+        enabled: bool,
+    ) -> Result<()> {
+        todo!()
     }
 
-    pub async fn technology_set(conn: &Connection, technology_path: &str, key: &str, value: Value) -> Result<()> {
-        
+    pub async fn technology_set(
+        conn: &Connection,
+        technology_path: &OwnedObjectPath,
+        key: &str,
+        value: OwnedValue,
+    ) -> Result<()> {
+        todo!()
     }
 }
 
