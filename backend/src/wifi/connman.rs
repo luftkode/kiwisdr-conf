@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 mod consts {
     /// D-Bus well-known name owned by the ConnMan daemon
     pub const CONNMAN_DEST: &str = "net.connman";
@@ -59,7 +61,7 @@ mod client {
     use super::consts::*;
     use std::collections::HashMap;
     use zbus::{Connection, Proxy};
-    use zvariant::{OwnedValue, OwnedObjectPath};
+    use zvariant::{OwnedObjectPath, OwnedValue, Value};
 
     type DBusDict = HashMap<String, OwnedValue>;
     
@@ -109,16 +111,95 @@ mod client {
         todo!()
     }
 
+    /// List all ConnMan technologies.
+    ///
+    /// This is a thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   / \
+    ///   net.connman.Manager.GetTechnologies
+    /// ```
+    ///
+    /// Each entry contains:
+    /// - the object path of the technology (e.g. `/net/connman/technology/wifi`)
+    /// - a property dictionary as returned by ConnMan
+    ///
+    /// No interpretation or validation is performed here.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the system D-Bus is unavailable
+    /// - ConnMan is not running
+    /// - the reply does not match `a(oa{sv})`
     pub async fn technologies(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
-        todo!()
+        let proxy = manager_proxy(conn).await?;
+
+        // ConnMan Manager.GetTechnologies → a(oa{sv})
+        let technologies: Vec<(OwnedObjectPath, DBusDict)> =
+            proxy.call("GetTechnologies", &()).await?;
+
+        Ok(technologies)
     }
 
-    pub async fn service_connect(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
-        todo!()
+    /// Connect to a ConnMan service (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/service/<wifi_uid> \
+    ///   net.connman.Service.Connect
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the service path is invalid
+    /// - D-Bus fails
+    /// - ConnMan rejects the request
+    pub async fn service_connect(
+        conn: &Connection,
+        service_path: &OwnedObjectPath,
+    ) -> Result<()> {
+        let proxy = service_proxy(conn, service_path).await?;
+
+        // Connect has no arguments and no return value
+        proxy.call::<&str, (), ()>("Connect", &()).await?;
+
+        Ok(())
     }
 
-    pub async fn service_disconnect(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
-        todo!()
+    /// Disconnect from a ConnMan service (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/service/<wifi_uid> \
+    ///   net.connman.Service.Disconnect
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the service path is invalid
+    /// - D-Bus fails
+    /// - ConnMan rejects the request
+    pub async fn service_disconnect(
+        conn: &Connection,
+        service_path: &OwnedObjectPath,
+    ) -> Result<()> {
+        let proxy = service_proxy(conn, service_path).await?;
+
+        // Disconnect has no arguments and no return value
+        proxy.call::<&str, (), ()>("Disconnect", &()).await?;
+
+        Ok(())
     }
 
     pub async fn service_config(
@@ -138,24 +219,162 @@ mod client {
         todo!()
     }
 
-    pub async fn service_properties(conn: &Connection, service_path: &OwnedObjectPath) -> Result<DBusDict> {
-        todo!()
+    /// Get the properties of a ConnMan service (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/service/<wifi_uid> \
+    ///   net.connman.Service.GetProperties
+    /// ```
+    ///
+    /// Returns a dictionary mapping property names to zvariant values (`a{sv}`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the service path is invalid
+    /// - D-Bus communication fails
+    /// - ConnMan rejects the request
+    pub async fn service_properties(
+        conn: &Connection,
+        service_path: &OwnedObjectPath,
+    ) -> Result<DBusDict> {
+        let proxy = service_proxy(conn, service_path).await?;
+
+        // GetProperties → a{sv}
+        let props: DBusDict = proxy.call("GetProperties", &()).await?;
+        Ok(props)
     }
 
-    pub async fn technology_enable(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<()> {
-        todo!()
+    /// Enable a ConnMan technology (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/technology/wifi \
+    ///   net.connman.Technology.SetProperty \
+    ///   string:"Powered" variant:boolean:true
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the technology is invalid
+    /// - D-Bus fails
+    /// - ConnMan rejects the request
+    pub async fn technology_enable(
+        conn: &Connection,
+        technology_path: &OwnedObjectPath,
+    ) -> Result<()> {
+        let proxy = technology_proxy(conn, technology_path).await?;
+        // SetProperty("Powered", true)
+        proxy
+            .call::<&str, (&str, Value), ()>(
+                "SetProperty",
+                &("Powered", Value::from(true)),
+            )
+            .await?;
+        Ok(())
     }
 
-    pub async fn technology_disable(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<()> {
-        todo!()
+    /// Disable a ConnMan technology (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/technology/wifi \
+    ///   net.connman.Technology.SetProperty \
+    ///   string:"Powered" variant:boolean:false
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the technology is invalid
+    /// - D-Bus fails
+    /// - ConnMan rejects the request
+    pub async fn technology_disable(
+        conn: &Connection,
+        technology_path: &OwnedObjectPath,
+    ) -> Result<()> {
+        let proxy = technology_proxy(conn, technology_path).await?;
+        // SetProperty("Powered", false)
+        proxy
+            .call::<&str, (&str, Value), ()>(
+                "SetProperty",
+                &("Powered", Value::from(false)),
+            )
+            .await?;
+        Ok(())
     }
 
-    pub async fn technology_scan(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<()> {
-        todo!()
+    /// Trigger a scan on a ConnMan technology (e.g. Wi-Fi).
+    ///
+    /// This is a thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/technology/wifi \
+    ///   net.connman.Technology.Scan
+    /// ```
+    ///
+    /// The method takes no arguments and returns no value.
+    /// A successful call merely indicates that the scan was
+    /// accepted by ConnMan.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the technology is powered off
+    /// - ConnMan rejects the request
+    /// - D-Bus communication fails
+    pub async fn technology_scan(
+        conn: &Connection,
+        technology_path: &OwnedObjectPath,
+    ) -> Result<()> {
+        let proxy = technology_proxy(conn, technology_path).await?;
+
+        // net.connman.Technology.Scan has no args and no reply body
+        proxy.call::<&str, (), ()>("Scan", &()).await?;
+        Ok(())
     }
 
-    pub async fn technology_properties(conn: &Connection, technology_path: &OwnedObjectPath) -> Result<DBusDict> {
-        todo!()
+    /// Get the properties of a ConnMan technology (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/technology/wifi \
+    ///   net.connman.Technology.GetProperties
+    /// ```
+    ///
+    /// Returns a dictionary mapping property names to zvariant values (`a{sv}`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the technology path is invalid
+    /// - D-Bus communication fails
+    /// - ConnMan rejects the request
+    pub async fn technology_properties(
+        conn: &Connection,
+        technology_path: &OwnedObjectPath,
+    ) -> Result<DBusDict> {
+        let proxy = technology_proxy(conn, technology_path).await?;
+
+        // GetProperties → a{sv}
+        let props: DBusDict = proxy.call("GetProperties", &()).await?;
+        Ok(props)
     }
 
     pub async fn technology_tether(
