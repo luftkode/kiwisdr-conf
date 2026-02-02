@@ -107,8 +107,40 @@ mod client {
         )
     }
 
+    /// List all ConnMan services.
+    ///
+    /// This is a thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   / \
+    ///   net.connman.Manager.GetServices
+    /// ```
+    ///
+    /// Each entry contains:
+    /// - the object path of the service
+    ///   (e.g. `/net/connman/service/wifi_<uid>_managed_psk`)
+    /// - a property dictionary as returned by ConnMan (`a{sv}`)
+    ///
+    /// This corresponds closely to `connmanctl services`.
+    ///
+    /// No interpretation, filtering, or validation is performed here.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the system D-Bus is unavailable
+    /// - ConnMan is not running
+    /// - the reply does not match `a(oa{sv})`
     pub async fn services(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBusDict)>> {
-        todo!()
+        let proxy = manager_proxy(conn).await?;
+
+        // ConnMan Manager.GetServices → a(oa{sv})
+        let services: Vec<(OwnedObjectPath, DBusDict)> =
+            proxy.call("GetServices", &()).await?;
+
+        Ok(services)
     }
 
     /// List all ConnMan technologies.
@@ -202,21 +234,92 @@ mod client {
         Ok(())
     }
 
+    /// Set a property on a ConnMan service (Wi-Fi, Ethernet, etc.).
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// # dbus-send example equivalent
+    /// dbus-send --system --dest=net.connman /net/connman/service/wifi_<uid>_managed_psk \
+    ///   net.connman.Service.SetProperty string:"AutoConnect" variant:boolean:true
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the service path is invalid
+    /// - D-Bus fails
+    /// - ConnMan rejects the request
     pub async fn service_config(
         conn: &Connection,
         service_path: &OwnedObjectPath,
         key: &str,
         value: OwnedValue,
     ) -> Result<()> {
-        todo!()
+        let proxy = service_proxy(conn, service_path).await?;
+
+        proxy
+            .call::<&str, (&str, Value), ()>("SetProperty", &(key, Value::from(value)))
+            .await?;
+
+        Ok(())
     }
 
-    pub async fn service_remove(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
-        todo!()
+    /// Remove a ConnMan service (Wi-Fi, Ethernet, etc.).
+    ///
+    /// Thin wrapper around:
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/service/<service> \
+    ///   net.connman.Service.Remove
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the service path is invalid
+    /// - D-Bus communication fails
+    /// - ConnMan rejects the request
+    pub async fn service_remove(
+        conn: &zbus::Connection,
+        service_path: &zvariant::OwnedObjectPath,
+    ) -> Result<()> {
+        let proxy = service_proxy(conn, service_path).await?;
+        proxy.call::<&str, (), ()>("Remove", &()).await?;
+        Ok(())
     }
 
-    pub async fn service_state(conn: &Connection, service_path: &OwnedObjectPath) -> Result<OwnedValue> {
-        todo!()
+    /// Get the current state of a ConnMan service.
+    ///
+    /// This is a convenience wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/service/<service> \
+    ///   net.connman.Service.GetProperties
+    /// ```
+    ///
+    /// The ConnMan D-Bus API does not expose a dedicated `GetState` method.
+    /// Instead, the service state is provided as the `"State"` entry in the
+    /// property dictionary returned by `GetProperties`.
+    ///
+    /// This function:
+    /// - calls `net.connman.Service.GetProperties`
+    /// - extracts the `"State"` property
+    /// - returns it as a raw `OwnedValue`
+    pub async fn service_state(
+        conn: &Connection,
+        service_path: &OwnedObjectPath,
+    ) -> Result<OwnedValue> {
+        let proxy = service_proxy(conn, service_path).await?;
+        let props: DBusDict = proxy.call("GetProperties", &()).await?;
+
+        props
+            .get("State")
+            .cloned()
+            .ok_or_else(|| super::error::ConnManError::MissingProperty("ConnMan service missing State property"))
     }
 
     /// Get the properties of a ConnMan service (Wi-Fi, Ethernet, etc.).
@@ -377,21 +480,77 @@ mod client {
         Ok(props)
     }
 
+    /// Enable or disable tethering on a ConnMan technology (e.g. Wi-Fi).
+    ///
+    /// Thin wrapper around:
+    ///
+    /// ```text
+    /// dbus-send --system --print-reply \
+    ///   --dest=net.connman \
+    ///   /net/connman/technology/<tech> \
+    ///   net.connman.Technology.SetProperty \
+    ///   string:"Tethering" variant:boolean:<enabled>
+    /// ```
+    ///
+    /// No validation or policy checks are performed here. In particular:
+    /// - the technology must already be powered on
+    /// - ConnMan may reject the request depending on configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the technology path is invalid
+    /// - D-Bus communication fails
+    /// - ConnMan rejects the request
     pub async fn technology_tether(
         conn: &Connection,
         technology_path: &OwnedObjectPath,
         enabled: bool,
     ) -> Result<()> {
-        todo!()
+        let proxy = technology_proxy(conn, technology_path).await?;
+
+        proxy
+            .call::<&str, (&str, Value), ()>(
+                "SetProperty",
+                &("Tethering", Value::from(enabled)),
+            )
+            .await?;
+
+        Ok(())
     }
 
+    /// Set a property on a ConnMan technology (Wi-Fi, Ethernet, etc.).
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// # dbus-send example equivalent
+    /// dbus-send --system --dest=net.connman /net/connman/technology/wifi \
+    ///   net.connman.Technology.SetProperty string:"Powered" variant:boolean:true
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - the technology path is invalid
+    /// - D-Bus communication fails
+    /// - ConnMan rejects the request
     pub async fn technology_set(
         conn: &Connection,
         technology_path: &OwnedObjectPath,
         key: &str,
         value: OwnedValue,
     ) -> Result<()> {
-        todo!()
+        let proxy = technology_proxy(conn, technology_path).await?;
+
+        proxy
+            .call::<&str, (&str, Value), ()>(
+                "SetProperty",
+                &(key, Value::from(value)),
+            )
+            .await?;
+
+        Ok(())
     }
 }
 
