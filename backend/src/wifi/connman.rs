@@ -517,21 +517,10 @@ mod client {
     }
 }
 
-/// Translates ConnMan D-Bus values into strongly typed `ServiceState`
-/// domain objects.
+/// Translation utilities for ConnMan service properties.
 ///
-/// This module is intentionally **pure and side-effect free**:
-/// - No D-Bus calls
-/// - No global state
-/// - No policy decisions
-///
-/// Its sole responsibility is to validate and convert the loosely typed
-/// `a{sv}` dictionaries returned by ConnMan into Rust types used by the
-/// rest of the application.
-///
-/// Any deviation from ConnMan’s expected schema (missing properties,
-/// wrong types, malformed addresses) is treated as an error and surfaced
-/// explicitly via `ConnManError`.
+/// This module converts loosely typed ConnMan `a{sv}` dictionaries into
+/// strongly typed domain values. No I/O or D-Bus interaction is performed.
 mod translation {
     use crate::wifi::connman::consts::*;
     use crate::wifi::connman::error::{ConnManError, Result};
@@ -708,12 +697,11 @@ mod translation {
         Ok(out)
     }
 
-    /// Fetch a required string property.
+    /// Returns the value of a required string property.
     ///
     /// # Errors
     ///
-    /// - `MissingProperty` if the key is absent
-    /// - `InvalidProperty` if the value is not a string
+    /// Returns an error if the property is missing or if the value is not a string.
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
         let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
 
@@ -738,15 +726,32 @@ mod translation {
         }
     }
 
-    /// Build a complete `ServiceState` from a ConnMan service property map.
+    /// Constructs a [`ServiceState`] from a ConnMan service property map.
     ///
-    /// This is the primary entry point for the translation layer.
+    /// The property map is expected to follow ConnMan’s `a{sv}` schema.
+    /// Required properties must be present and correctly typed.
+    /// Optional properties are validated if present.
     ///
     /// # Errors
     ///
-    /// Returns the first error encountered while parsing required
-    /// or optional fields. Optional fields do not suppress errors
-    /// if present but malformed.
+    /// Returns an error if any required property is missing, if a property
+    /// has an unexpected type, or if an address string cannot be parsed.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// # use std::collections::HashMap;
+    /// # use zvariant::{OwnedValue, Str};
+    /// # use backend::wifi::model::ServiceStateKind;
+    /// # use backend::wifi::connman::translation::service_state_from_properties;
+    /// #
+    /// let mut props = HashMap::new();
+    /// props.insert("State".into(), OwnedValue::from(Str::from("online")));
+    ///
+    /// let state = service_state_from_properties("wifi0".into(), &props).unwrap();
+    /// assert_eq!(state.state(), ServiceStateKind::Online);
+    /// ```
+    #[must_use]
     pub fn service_state_from_properties(
         wifi_uid: String,
         props: &DBusDict,
