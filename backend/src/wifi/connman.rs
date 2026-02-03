@@ -704,6 +704,44 @@ mod tests {
             let err = parse_strength(&props).unwrap_err();
             matches!(err, ConnManError::InvalidProperty(PROP_STRENGTH));
         }
+
+        #[test]
+        fn strength_above_100_is_preserved() {
+            let mut props = empty_props();
+            props.insert(PROP_STATE.into(), ovs("online"));
+            props.insert(PROP_STRENGTH.into(), ov(255u8));
+
+            let state = service_state_from_properties("wifi0".into(), &props).unwrap();
+            assert_eq!(state.strength(), Some(255));
+        }
+    }
+
+    mod parse_ip_blocks {
+        use super::*;
+
+        #[test]
+        fn missing_ipv4_block_is_none() {
+            let props = empty_props();
+            assert!(parse_ipv4(&props).unwrap().is_none());
+        }
+
+        #[test]
+        fn invalid_ipv4_block_type_is_error() {
+            let mut props = empty_props();
+            props.insert(PROP_IPV4.into(), ovs("not a dict"));
+
+            let err = parse_ipv4(&props).unwrap_err();
+            matches!(err, ConnManError::InvalidProperty(PROP_IPV4));
+        }
+
+        #[test]
+        fn invalid_ipv6_block_type_is_error() {
+            let mut props = empty_props();
+            props.insert(PROP_IPV6.into(), ov(123u32));
+
+            let err = parse_ipv6(&props).unwrap_err();
+            matches!(err, ConnManError::InvalidProperty(PROP_IPV6));
+        }
     }
 
     mod parse_ipv4_dict {
@@ -731,6 +769,43 @@ mod tests {
         }
     }
 
+    mod parse_ipv4_edge_cases {
+        use super::*;
+
+        #[test]
+        fn rejects_invalid_ipv4_address() {
+            let mut dict = DBusDict::new();
+            dict.insert(IP_ADDRESS.into(), ovs("999.999.999.999"));
+            dict.insert(IP_GATEWAY.into(), ovs("192.168.1.1"));
+            dict.insert(IP_PREFIX.into(), ov(24u32));
+
+            let err = parse_ipv4_dict(&dict).unwrap_err();
+            matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+        }
+
+        #[test]
+        fn rejects_invalid_gateway_address() {
+            let mut dict = DBusDict::new();
+            dict.insert(IP_ADDRESS.into(), ovs("192.168.1.10"));
+            dict.insert(IP_GATEWAY.into(), ovs("nope"));
+            dict.insert(IP_PREFIX.into(), ov(24u32));
+
+            let err = parse_ipv4_dict(&dict).unwrap_err();
+            matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
+        }
+
+        #[test]
+        fn prefix_zero_is_allowed() {
+            let mut dict = DBusDict::new();
+            dict.insert(IP_ADDRESS.into(), ovs("0.0.0.0"));
+            dict.insert(IP_GATEWAY.into(), ovs("0.0.0.0"));
+            dict.insert(IP_PREFIX.into(), ov(0u32));
+
+            let ipv4 = parse_ipv4_dict(&dict).unwrap();
+            assert_eq!(ipv4.cidr(), "0.0.0.0/0");
+        }
+    }
+
     mod parse_ipv6_dict {
         use super::*;
 
@@ -754,6 +829,40 @@ mod tests {
 
             let ipv6 = parse_ipv6_dict(&dict).unwrap();
             assert_eq!(ipv6.gateway().unwrap(), Ipv6Addr::from([0xfe80,0,0,0,0,0,0,0xff]));
+        }
+    }
+
+    mod parse_ipv6_edge_cases {
+        use super::*;
+
+        #[test]
+        fn rejects_invalid_ipv6_address() {
+            let mut dict = DBusDict::new();
+            dict.insert(IP_ADDRESS.into(), ovs("this:is:garbage"));
+            dict.insert(IP_PREFIX.into(), ov(64u32));
+
+            let err = parse_ipv6_dict(&dict).unwrap_err();
+            matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+        }
+
+        #[test]
+        fn empty_gateway_is_error() {
+            let mut dict = DBusDict::new();
+            dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
+            dict.insert(IP_GATEWAY.into(), ovs(""));
+            dict.insert(IP_PREFIX.into(), ov(64u32));
+
+            let err = parse_ipv6_dict(&dict).unwrap_err();
+            matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
+        }
+
+        #[test]
+        fn missing_prefix_is_error() {
+            let mut dict = DBusDict::new();
+            dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
+
+            let err = parse_ipv6_dict(&dict).unwrap_err();
+            matches!(err, ConnManError::MissingProperty(IP_PREFIX));
         }
     }
 
@@ -796,6 +905,33 @@ mod tests {
             assert_eq!(state.strength(), Some(55));
             assert!(state.ipv4().is_none());
             assert!(state.ipv6().is_none());
+        }
+    }
+
+    mod service_state_partial_failures {
+        use super::*;
+
+        #[test]
+        fn invalid_ipv4_does_not_hide_state_error() {
+            let mut ipv4 = DBusDict::new();
+            ipv4.insert(IP_ADDRESS.into(), ovs("broken"));
+            ipv4.insert(IP_PREFIX.into(), ov(24u32));
+
+            let mut props = empty_props();
+            props.insert(PROP_STATE.into(), ovs("online"));
+            props.insert(PROP_IPV4.into(), ov(ipv4));
+
+            let err = service_state_from_properties("wifi0".into(), &props).unwrap_err();
+            matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+        }
+
+        #[test]
+        fn missing_strength_does_not_fail_service() {
+            let mut props = empty_props();
+            props.insert(PROP_STATE.into(), ovs("online"));
+
+            let state = service_state_from_properties("wifi0".into(), &props).unwrap();
+            assert_eq!(state.strength(), None);
         }
     }
 }
