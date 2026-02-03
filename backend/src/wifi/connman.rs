@@ -943,9 +943,7 @@ pub struct ConnManConnection {
 }
 
 impl ConnManConnection {
-    /// Connects to the system D-Bus.
-    ///
-    /// This does not talk to ConnMan yet — it only opens the bus.
+    /// Opens a connection to the system D-Bus.
     pub async fn new() -> Result<Self> {
         let connection = zbus::Connection::system().await?;
         Ok(Self { connection })
