@@ -19,21 +19,68 @@ pub mod error {
         InvalidServiceState(String),
     }
 
-    pub type Result<T> = std::result::Result<T, WifiError>;
+    pub type WifiResult<T> = std::result::Result<T, WifiError>;
 }
 
-use crate::wifi::error::Result as WifiResult;
+use crate::wifi::error::WifiResult;
 use crate::wifi::model::ServiceState;
 
-#[allow(async_fn_in_trait)] // I will never use "dyn Wifi"
+#[allow(async_fn_in_trait)] // only used with concrete types, never dyn
+/// Interface for managing Wi-Fi connectivity.
+///
+/// Implementors provide methods to list networks and manage connections.
+/// All operations are asynchronous.
 pub trait Wifi {
-    /// List available Wi-Fi networks (ServiceState for each)
+    /// Returns a list of available Wi-Fi networks.
+    ///
+    /// Each network is represented as a [`ServiceState`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use backend::wifi::{Wifi, model::ServiceState, error::WifiResult};
+    /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
+    ///     let networks: Vec<ServiceState> = wifi.get_available().await?;
+    ///     # Ok(())
+    /// # }
+    /// ```
     async fn get_available(&self) -> WifiResult<Vec<ServiceState>>;
 
-    /// Connect to a Wi-Fi network by uid
-    /// Optional passphrase for open vs WPA/WPA2 networks
+    /// Connects to a Wi-Fi network identified by `wifi_uid`.
+    ///
+    /// If the network requires a passphrase, provide it via `passphrase`.
+    /// Open networks can be connected to with `None`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the connection fails, the network does not exist,
+    /// or the credentials are invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use backend::wifi::{Wifi, error::WifiResult};
+    /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
+    /// wifi.connect("wifi0", Some("password")).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()>;
 
-    /// Disconnect from a Wi-Fi network by uid
+    /// Disconnects from a Wi-Fi network identified by `wifi_uid`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the network is not connected or the operation fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use backend::wifi::{Wifi, error::WifiResult};
+    /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
+    /// wifi.disconnect("wifi0").await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()>;
 }

@@ -52,7 +52,7 @@ pub mod error {
 
 use crate::wifi::{
     Wifi,
-    error::{Result as WifiResult, WifiError},
+    error::{WifiResult, WifiError},
     model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind},
 };
 use error::{ConnManError, Result};
