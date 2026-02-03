@@ -531,46 +531,122 @@ mod translation {
     type DBusDict = HashMap<String, OwnedValue>;
 
     fn parse_state(props: &DBusDict) -> Result<ServiceStateKind> {
-        todo!()
+        let raw = get_string(props, PROP_STATE)?;
+        ServiceStateKind::try_from(raw.as_str())
+            .map_err(|_| ConnManError::InvalidProperty(PROP_STATE))
     }
 
     fn parse_strength(props: &DBusDict) -> Result<Option<u8>> {
-        todo!()
+        match props.get(PROP_STRENGTH) {
+            None => Ok(None),
+            Some(v) => v
+                .downcast_ref::<u8>()
+                .copied()
+                .map(Some)
+                .ok_or(ConnManError::InvalidProperty(PROP_STRENGTH)),
+        }
     }
 
     fn parse_ipv4(props: &DBusDict) -> Result<Option<Ipv4Connection>> {
-        todo!()
+        let value = match props.get(PROP_IPV4) {
+            None => return Ok(None),
+            Some(v) => v,
+        };
+
+        let dict = downcast_dict(value, PROP_IPV4)?;
+        Ok(Some(parse_ipv4_dict(dict)?))
     }
 
     fn parse_ipv6(props: &DBusDict) -> Result<Option<Ipv6Connection>> {
-        todo!()
+        let value = match props.get(PROP_IPV6) {
+            None => return Ok(None),
+            Some(v) => v,
+        };
+
+        let dict = downcast_dict(value, PROP_IPV6)?;
+        Ok(Some(parse_ipv6_dict(dict)?))
     }
 
     fn parse_ipv4_dict(dict: &DBusDict) -> Result<Ipv4Connection> {
-        todo!()
+        let address: Ipv4Addr = get_string(dict, IP_ADDRESS)?
+            .parse()
+            .map_err(|_| ConnManError::InvalidAddress(IP_ADDRESS))?;
+
+        let gateway: Ipv4Addr = get_string(dict, IP_GATEWAY)?
+            .parse()
+            .map_err(|_| ConnManError::InvalidAddress(IP_GATEWAY))?;
+
+        let prefix = get_u32(dict, IP_PREFIX)? as u8;
+
+        Ok(Ipv4Connection::new(address, prefix, gateway))
     }
 
     fn parse_ipv6_dict(dict: &DBusDict) -> Result<Ipv6Connection> {
-        todo!()
+        let address: Ipv6Addr = get_string(dict, IP_ADDRESS)?
+            .parse()
+            .map_err(|_| ConnManError::InvalidAddress(IP_ADDRESS))?;
+
+        let prefix = get_u32(dict, IP_PREFIX)? as u8;
+
+        let gateway = match dict.get(IP_GATEWAY) {
+            None => None,
+            Some(v) => {
+                let s = v
+                    .downcast_ref::<String>()
+                    .ok_or(ConnManError::InvalidProperty(IP_GATEWAY))?;
+
+                if s.is_empty() {
+                    return Err(ConnManError::InvalidAddress(IP_GATEWAY));
+                }
+
+                Some(
+                    s.parse()
+                        .map_err(|_| ConnManError::InvalidAddress(IP_GATEWAY))?,
+                )
+            }
+        };
+
+        Ok(Ipv6Connection::new(address, prefix, gateway))
     }
 
     fn downcast_dict<'a>(value: &'a OwnedValue, name: &'static str) -> Result<&'a DBusDict> {
-        todo!()
+        value
+            .downcast_ref::<DBusDict>()
+            .ok_or(ConnManError::InvalidProperty(name))
     }
 
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
-        todo!()
+        props
+            .get(key)
+            .and_then(|v| v.downcast_ref::<String>())
+            .cloned()
+            .ok_or(ConnManError::MissingProperty(key))
     }
 
     fn get_u32(props: &DBusDict, key: &'static str) -> Result<u32> {
-        todo!()
+        props
+            .get(key)
+            .and_then(|v| v.downcast_ref::<u32>())
+            .copied()
+            .ok_or(ConnManError::MissingProperty(key))
     }
 
     pub fn service_state_from_properties(
         wifi_uid: String,
         props: &DBusDict,
     ) -> Result<ServiceState> {
-        todo!()
+        let state = parse_state(props)?;
+        let strength = parse_strength(props)?;
+        let ipv4 = parse_ipv4(props)?;
+        let ipv6 = parse_ipv6(props)?;
+
+        Ok(ServiceState::new(
+            wifi_uid,
+            state,
+            strength,
+            ipv4,
+            ipv6,
+        ))
     }
 
     #[cfg(test)]
