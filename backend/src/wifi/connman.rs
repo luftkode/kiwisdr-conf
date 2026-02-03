@@ -539,11 +539,10 @@ mod translation {
     fn parse_strength(props: &DBusDict) -> Result<Option<u8>> {
         match props.get(PROP_STRENGTH) {
             None => Ok(None),
-            Some(v) => v
-                .downcast_ref::<u8>()
-                .copied()
-                .map(Some)
-                .ok_or(ConnManError::InvalidProperty(PROP_STRENGTH)),
+            Some(v) => match v.downcast_ref::<u8>() {
+                Ok(n) => Ok(Some(n)),
+                Err(_) => Err(ConnManError::InvalidProperty(PROP_STRENGTH)),
+            },
         }
     }
 
@@ -591,9 +590,10 @@ mod translation {
         let gateway = match dict.get(IP_GATEWAY) {
             None => None,
             Some(v) => {
-                let s = v
-                    .downcast_ref::<String>()
-                    .ok_or(ConnManError::InvalidProperty(IP_GATEWAY))?;
+                let s = match v.downcast_ref::<String>() {
+                    Ok(s) => s,
+                    Err(_) => return Err(ConnManError::InvalidProperty(IP_GATEWAY)),
+                };
 
                 if s.is_empty() {
                     return Err(ConnManError::InvalidAddress(IP_GATEWAY));
@@ -609,26 +609,31 @@ mod translation {
         Ok(Ipv6Connection::new(address, prefix, gateway))
     }
 
-    fn downcast_dict<'a>(value: &'a OwnedValue, name: &'static str) -> Result<&'a DBusDict> {
+    fn downcast_dict<'a>(
+        value: &'a OwnedValue,
+        name: &'static str,
+    ) -> Result<&'a DBusDict> {
         value
             .downcast_ref::<DBusDict>()
-            .ok_or(ConnManError::InvalidProperty(name))
+            .map_err(|_| ConnManError::InvalidProperty(name))
     }
 
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
-        props
-            .get(key)
-            .and_then(|v| v.downcast_ref::<String>())
-            .cloned()
-            .ok_or(ConnManError::MissingProperty(key))
+        let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
+
+        match v.downcast_ref::<String>() {
+            Ok(s) => Ok(s),
+            Err(_) => Err(ConnManError::InvalidProperty(key)),
+        }
     }
 
     fn get_u32(props: &DBusDict, key: &'static str) -> Result<u32> {
-        props
-            .get(key)
-            .and_then(|v| v.downcast_ref::<u32>())
-            .copied()
-            .ok_or(ConnManError::MissingProperty(key))
+        let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
+
+        match v.downcast_ref::<u32>() {
+            Ok(n) => Ok(n),
+            Err(_) => Err(ConnManError::InvalidProperty(key)),
+        }
     }
 
     pub fn service_state_from_properties(
