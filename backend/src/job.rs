@@ -39,7 +39,7 @@ impl Log {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct Logs {
     logs: VecDeque<Log>,
 }
@@ -70,14 +70,6 @@ impl Logs {
 
         if self.logs.len() > MAX_LOG_COUNT {
             self.logs.pop_front();
-        }
-    }
-}
-
-impl Default for Logs {
-    fn default() -> Self {
-        Logs {
-            logs: VecDeque::new(),
         }
     }
 }
@@ -269,14 +261,14 @@ pub struct Job {
 impl Job {
     pub fn new(job_id: u32, settings: RecorderSettings) -> Self {
         Self {
-            job_id: job_id,
+            job_id,
             job_uid: generate_uid(),
             status: JobStatus::Idle,
             process: None,
             started_at: None,
             next_run_start: None,
             logs: Logs::default(),
-            settings: settings,
+            settings,
         }
     }
 
@@ -296,7 +288,7 @@ impl Job {
         let mut job = shared_job.lock().await;
         job.mark_starting()?;
         let uid = job.job_uid.clone();
-        let settings = job.settings.clone();
+        let settings = job.settings;
         drop(job);
 
         let mut child: Child = tokio::process::Command::new("python3")
@@ -369,7 +361,7 @@ impl Job {
     fn push_log(&mut self, data: String) {
         self.logs.push(Log {
             timestamp: Utc::now().timestamp() as u64,
-            data: data,
+            data,
         });
     }
 
@@ -377,7 +369,7 @@ impl Job {
         debug_assert!(self.process.is_none());
 
         if self.status != JobStatus::Idle {
-            return Err(io::Error::new(io::ErrorKind::Other, "Job not idle"));
+            return Err(io::Error::other("Job not idle"));
         }
 
         self.status = JobStatus::Starting;
@@ -401,7 +393,7 @@ impl Job {
 
     fn mark_stopping(&mut self) -> io::Result<()> {
         if self.status != JobStatus::Running {
-            return Err(io::Error::new(io::ErrorKind::Other, "Job is not running"));
+            return Err(io::Error::other("Job is not running"));
         }
 
         self.status = JobStatus::Stopping;
