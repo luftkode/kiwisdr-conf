@@ -50,61 +50,41 @@ pub mod error {
     pub type Result<T> = std::result::Result<T, ConnManError>;
 }
 
-use std::net::{Ipv4Addr, Ipv6Addr};
-use crate::wifi::{Wifi, error::{WifiError, Result as WifiResult}, model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind}};
+use crate::wifi::{
+    Wifi,
+    error::{Result as WifiResult, WifiError},
+    model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind},
+};
 use error::{ConnManError, Result};
+use std::net::{Ipv4Addr, Ipv6Addr};
 
 /// Thin connman dbus wrapper
 /// Acts like connmanctl
 mod client {
-    use super::error::Result;
     use super::consts::*;
+    use super::error::Result;
     use std::collections::HashMap;
     use zbus::{Connection, Proxy};
     use zvariant::{OwnedObjectPath, OwnedValue, Value};
 
     type DBusDict = HashMap<String, OwnedValue>;
-    
+
     async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
-        Ok(
-            Proxy::new(
-                conn,
-                CONNMAN_DEST,
-                CONNMAN_ROOT_PATH,
-                CONNMAN_MANAGER_IFACE,
-            )
-            .await?
-        )
+        Ok(Proxy::new(conn, CONNMAN_DEST, CONNMAN_ROOT_PATH, CONNMAN_MANAGER_IFACE).await?)
     }
 
     async fn service_proxy<'a>(
         conn: &'a Connection,
         service_path: &'a OwnedObjectPath,
     ) -> Result<Proxy<'a>> {
-        Ok(
-            Proxy::new(
-                conn,
-                CONNMAN_DEST,
-                service_path,
-                CONNMAN_SERVICE_IFACE,
-            )
-            .await?
-        )
+        Ok(Proxy::new(conn, CONNMAN_DEST, service_path, CONNMAN_SERVICE_IFACE).await?)
     }
 
     async fn technology_proxy<'a>(
         conn: &'a Connection,
         technology_path: &'a OwnedObjectPath,
     ) -> Result<Proxy<'a>> {
-        Ok(
-            Proxy::new(
-                conn,
-                CONNMAN_DEST,
-                technology_path,
-                CONNMAN_TECH_IFACE,
-            )
-            .await?
-        )
+        Ok(Proxy::new(conn, CONNMAN_DEST, technology_path, CONNMAN_TECH_IFACE).await?)
     }
 
     /// List all ConnMan services.
@@ -137,8 +117,7 @@ mod client {
         let proxy = manager_proxy(conn).await?;
 
         // ConnMan Manager.GetServices → a(oa{sv})
-        let services: Vec<(OwnedObjectPath, DBusDict)> =
-            proxy.call("GetServices", &()).await?;
+        let services: Vec<(OwnedObjectPath, DBusDict)> = proxy.call("GetServices", &()).await?;
 
         Ok(services)
     }
@@ -193,10 +172,7 @@ mod client {
     /// - the service path is invalid
     /// - D-Bus fails
     /// - ConnMan rejects the request
-    pub async fn service_connect(
-        conn: &Connection,
-        service_path: &OwnedObjectPath,
-    ) -> Result<()> {
+    pub async fn service_connect(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
         let proxy = service_proxy(conn, service_path).await?;
 
         // Connect has no arguments and no return value
@@ -316,10 +292,9 @@ mod client {
         let proxy = service_proxy(conn, service_path).await?;
         let props: DBusDict = proxy.call("GetProperties", &()).await?;
 
-        props
-            .get("State")
-            .cloned()
-            .ok_or_else(|| super::error::ConnManError::MissingProperty("ConnMan service missing State property"))
+        props.get("State").cloned().ok_or_else(|| {
+            super::error::ConnManError::MissingProperty("ConnMan service missing State property")
+        })
     }
 
     /// Get the properties of a ConnMan service (Wi-Fi, Ethernet, etc.).
@@ -377,10 +352,7 @@ mod client {
         let proxy = technology_proxy(conn, technology_path).await?;
         // SetProperty("Powered", true)
         proxy
-            .call::<&str, (&str, Value), ()>(
-                "SetProperty",
-                &("Powered", Value::from(true)),
-            )
+            .call::<&str, (&str, Value), ()>("SetProperty", &("Powered", Value::from(true)))
             .await?;
         Ok(())
     }
@@ -410,10 +382,7 @@ mod client {
         let proxy = technology_proxy(conn, technology_path).await?;
         // SetProperty("Powered", false)
         proxy
-            .call::<&str, (&str, Value), ()>(
-                "SetProperty",
-                &("Powered", Value::from(false)),
-            )
+            .call::<&str, (&str, Value), ()>("SetProperty", &("Powered", Value::from(false)))
             .await?;
         Ok(())
     }
@@ -510,10 +479,7 @@ mod client {
         let proxy = technology_proxy(conn, technology_path).await?;
 
         proxy
-            .call::<&str, (&str, Value), ()>(
-                "SetProperty",
-                &("Tethering", Value::from(enabled)),
-            )
+            .call::<&str, (&str, Value), ()>("SetProperty", &("Tethering", Value::from(enabled)))
             .await?;
 
         Ok(())
@@ -544,10 +510,7 @@ mod client {
         let proxy = technology_proxy(conn, technology_path).await?;
 
         proxy
-            .call::<&str, (&str, Value), ()>(
-                "SetProperty",
-                &(key, Value::from(value)),
-            )
+            .call::<&str, (&str, Value), ()>("SetProperty", &(key, Value::from(value)))
             .await?;
 
         Ok(())
@@ -563,66 +526,43 @@ mod translation {
 
     use crate::wifi::connman::consts::*;
     use crate::wifi::connman::error::{ConnManError, Result};
-    use crate::wifi::model::{
-        Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind,
-    };
+    use crate::wifi::model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind};
 
     type DBusDict = HashMap<String, OwnedValue>;
 
-    fn parse_state(
-        props: &DBusDict,
-    ) -> Result<ServiceStateKind> {
+    fn parse_state(props: &DBusDict) -> Result<ServiceStateKind> {
         todo!()
     }
 
-    fn parse_strength(
-        props: &DBusDict,
-    ) -> Result<Option<u8>> {
+    fn parse_strength(props: &DBusDict) -> Result<Option<u8>> {
         todo!()
     }
 
-    fn parse_ipv4(
-        props: &DBusDict,
-    ) -> Result<Option<Ipv4Connection>> {
+    fn parse_ipv4(props: &DBusDict) -> Result<Option<Ipv4Connection>> {
         todo!()
     }
 
-    fn parse_ipv6(
-        props: &DBusDict,
-    ) -> Result<Option<Ipv6Connection>> {
+    fn parse_ipv6(props: &DBusDict) -> Result<Option<Ipv6Connection>> {
         todo!()
     }
 
-    fn parse_ipv4_dict(
-        dict: &DBusDict,
-    ) -> Result<Ipv4Connection> {
+    fn parse_ipv4_dict(dict: &DBusDict) -> Result<Ipv4Connection> {
         todo!()
     }
 
-    fn parse_ipv6_dict(
-        dict: &DBusDict,
-    ) -> Result<Ipv6Connection> {
+    fn parse_ipv6_dict(dict: &DBusDict) -> Result<Ipv6Connection> {
         todo!()
     }
 
-    fn downcast_dict<'a>(
-        value: &'a OwnedValue,
-        name: &'static str,
-    ) -> Result<&'a DBusDict> {
+    fn downcast_dict<'a>(value: &'a OwnedValue, name: &'static str) -> Result<&'a DBusDict> {
         todo!()
     }
 
-    fn get_string(
-        props: &DBusDict,
-        key: &'static str,
-    ) -> Result<String> {
+    fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
         todo!()
     }
 
-    fn get_u32(
-        props: &DBusDict,
-        key: &'static str,
-    ) -> Result<u32> {
+    fn get_u32(props: &DBusDict, key: &'static str) -> Result<u32> {
         todo!()
     }
 
@@ -634,308 +574,309 @@ mod translation {
     }
 
     #[cfg(test)]
-mod tests {
-    use super::*;
-    use zvariant::{OwnedValue, Str};
-
-    fn ov<T: Into<OwnedValue>>(v: T) -> OwnedValue {
-        v.into()
-    }
-
-    fn ovs(s: &str) -> OwnedValue {
-        Str::from(s).into()
-    }
-
-    fn empty_props() -> DBusDict {
-        DBusDict::new()
-    }
-
-    mod parse_state {
+    mod tests {
         use super::*;
+        use zvariant::{OwnedValue, Str};
 
-        #[test]
-        fn parses_valid_states() {
-            let mut props = empty_props();
-            props.insert(PROP_STATE.into(), ovs("online"));
-
-            let state = parse_state(&props).unwrap();
-            assert_eq!(state, ServiceStateKind::Online);
+        fn ov<T: Into<OwnedValue>>(v: T) -> OwnedValue {
+            v.into()
         }
 
-        #[test]
-        fn rejects_unknown_state() {
-            let mut props = empty_props();
-            props.insert(PROP_STATE.into(), ovs("nonsense"));
-
-            let err = parse_state(&props).unwrap_err();
-            matches!(err, ConnManError::InvalidProperty(PROP_STATE));
+        fn ovs(s: &str) -> OwnedValue {
+            Str::from(s).into()
         }
 
-        #[test]
-        fn missing_state_is_error() {
-            let props = empty_props();
-            let err = parse_state(&props).unwrap_err();
-            matches!(err, ConnManError::MissingProperty(PROP_STATE));
+        fn empty_props() -> DBusDict {
+            DBusDict::new()
+        }
+
+        mod parse_state {
+            use super::*;
+
+            #[test]
+            fn parses_valid_states() {
+                let mut props = empty_props();
+                props.insert(PROP_STATE.into(), ovs("online"));
+
+                let state = parse_state(&props).unwrap();
+                assert_eq!(state, ServiceStateKind::Online);
+            }
+
+            #[test]
+            fn rejects_unknown_state() {
+                let mut props = empty_props();
+                props.insert(PROP_STATE.into(), ovs("nonsense"));
+
+                let err = parse_state(&props).unwrap_err();
+                matches!(err, ConnManError::InvalidProperty(PROP_STATE));
+            }
+
+            #[test]
+            fn missing_state_is_error() {
+                let props = empty_props();
+                let err = parse_state(&props).unwrap_err();
+                matches!(err, ConnManError::MissingProperty(PROP_STATE));
+            }
+        }
+
+        mod parse_strength {
+            use super::*;
+
+            #[test]
+            fn missing_strength_is_none() {
+                let props = empty_props();
+                assert_eq!(parse_strength(&props).unwrap(), None);
+            }
+
+            #[test]
+            fn parses_strength() {
+                let mut props = empty_props();
+                props.insert(PROP_STRENGTH.into(), ov(73u8));
+
+                assert_eq!(parse_strength(&props).unwrap(), Some(73));
+            }
+
+            #[test]
+            fn invalid_strength_type_is_error() {
+                let mut props = empty_props();
+                props.insert(PROP_STRENGTH.into(), ovs("loud"));
+
+                let err = parse_strength(&props).unwrap_err();
+                matches!(err, ConnManError::InvalidProperty(PROP_STRENGTH));
+            }
+
+            #[test]
+            fn strength_above_100_is_preserved() {
+                let mut props = empty_props();
+                props.insert(PROP_STATE.into(), ovs("online"));
+                props.insert(PROP_STRENGTH.into(), ov(255u8));
+
+                let state = service_state_from_properties("wifi0".into(), &props).unwrap();
+                assert_eq!(state.strength(), Some(255));
+            }
+        }
+
+        mod parse_ip_blocks {
+            use super::*;
+
+            #[test]
+            fn missing_ipv4_block_is_none() {
+                let props = empty_props();
+                assert!(parse_ipv4(&props).unwrap().is_none());
+            }
+
+            #[test]
+            fn invalid_ipv4_block_type_is_error() {
+                let mut props = empty_props();
+                props.insert(PROP_IPV4.into(), ovs("not a dict"));
+
+                let err = parse_ipv4(&props).unwrap_err();
+                matches!(err, ConnManError::InvalidProperty(PROP_IPV4));
+            }
+
+            #[test]
+            fn invalid_ipv6_block_type_is_error() {
+                let mut props = empty_props();
+                props.insert(PROP_IPV6.into(), ov(123u32));
+
+                let err = parse_ipv6(&props).unwrap_err();
+                matches!(err, ConnManError::InvalidProperty(PROP_IPV6));
+            }
+        }
+
+        mod parse_ipv4_dict {
+            use super::*;
+
+            #[test]
+            fn parses_valid_ipv4_dict() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("192.168.1.10"));
+                dict.insert(IP_GATEWAY.into(), ovs("192.168.1.1"));
+                dict.insert(IP_PREFIX.into(), ov(24u32));
+
+                let ipv4 = parse_ipv4_dict(&dict).unwrap();
+                assert_eq!(ipv4.cidr(), "192.168.1.10/24");
+                assert_eq!(ipv4.gateway(), Ipv4Addr::new(192, 168, 1, 1));
+            }
+
+            #[test]
+            fn missing_address_is_error() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_PREFIX.into(), ov(24u32));
+
+                let err = parse_ipv4_dict(&dict).unwrap_err();
+                matches!(err, ConnManError::MissingProperty(IP_ADDRESS));
+            }
+        }
+
+        mod parse_ipv4_edge_cases {
+            use super::*;
+
+            #[test]
+            fn rejects_invalid_ipv4_address() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("999.999.999.999"));
+                dict.insert(IP_GATEWAY.into(), ovs("192.168.1.1"));
+                dict.insert(IP_PREFIX.into(), ov(24u32));
+
+                let err = parse_ipv4_dict(&dict).unwrap_err();
+                matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+            }
+
+            #[test]
+            fn rejects_invalid_gateway_address() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("192.168.1.10"));
+                dict.insert(IP_GATEWAY.into(), ovs("nope"));
+                dict.insert(IP_PREFIX.into(), ov(24u32));
+
+                let err = parse_ipv4_dict(&dict).unwrap_err();
+                matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
+            }
+
+            #[test]
+            fn prefix_zero_is_allowed() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("0.0.0.0"));
+                dict.insert(IP_GATEWAY.into(), ovs("0.0.0.0"));
+                dict.insert(IP_PREFIX.into(), ov(0u32));
+
+                let ipv4 = parse_ipv4_dict(&dict).unwrap();
+                assert_eq!(ipv4.cidr(), "0.0.0.0/0");
+            }
+        }
+
+        mod parse_ipv6_dict {
+            use super::*;
+
+            #[test]
+            fn parses_ipv6_without_gateway() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
+                dict.insert(IP_PREFIX.into(), ov(64u32));
+
+                let ipv6 = parse_ipv6_dict(&dict).unwrap();
+                assert_eq!(ipv6.cidr(), "fe80::1/64");
+                assert!(ipv6.gateway().is_none());
+            }
+
+            #[test]
+            fn parses_ipv6_with_gateway() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
+                dict.insert(IP_GATEWAY.into(), ovs("fe80::ff"));
+                dict.insert(IP_PREFIX.into(), ov(64u32));
+
+                let ipv6 = parse_ipv6_dict(&dict).unwrap();
+                assert_eq!(
+                    ipv6.gateway().unwrap(),
+                    Ipv6Addr::from([0xfe80, 0, 0, 0, 0, 0, 0, 0xff])
+                );
+            }
+        }
+
+        mod parse_ipv6_edge_cases {
+            use super::*;
+
+            #[test]
+            fn rejects_invalid_ipv6_address() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("this:is:garbage"));
+                dict.insert(IP_PREFIX.into(), ov(64u32));
+
+                let err = parse_ipv6_dict(&dict).unwrap_err();
+                matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+            }
+
+            #[test]
+            fn empty_gateway_is_error() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
+                dict.insert(IP_GATEWAY.into(), ovs(""));
+                dict.insert(IP_PREFIX.into(), ov(64u32));
+
+                let err = parse_ipv6_dict(&dict).unwrap_err();
+                matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
+            }
+
+            #[test]
+            fn missing_prefix_is_error() {
+                let mut dict = DBusDict::new();
+                dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
+
+                let err = parse_ipv6_dict(&dict).unwrap_err();
+                matches!(err, ConnManError::MissingProperty(IP_PREFIX));
+            }
+        }
+
+        mod downcast_dict {
+            use super::*;
+
+            #[test]
+            fn downcasts_dictionary() {
+                let mut inner = DBusDict::new();
+                inner.insert("Key".into(), ovs("Value"));
+
+                let value = ov(inner);
+                let dict = downcast_dict(&value, "Test").unwrap();
+
+                assert!(dict.contains_key("Key"));
+            }
+
+            #[test]
+            fn rejects_non_dictionary() {
+                let value = ovs("not a dict");
+                let err = downcast_dict(&value, "Test").unwrap_err();
+                matches!(err, ConnManError::InvalidProperty("Test"));
+            }
+        }
+
+        mod service_state_from_properties {
+            use super::*;
+
+            #[test]
+            fn builds_minimal_service_state() {
+                let mut props = empty_props();
+                props.insert(PROP_STATE.into(), ovs("ready"));
+                props.insert(PROP_STRENGTH.into(), ov(55u8));
+
+                let state = service_state_from_properties("wifi0".into(), &props).unwrap();
+
+                assert_eq!(state.wifi_uid(), "wifi0");
+                assert_eq!(state.state(), ServiceStateKind::Ready);
+                assert_eq!(state.strength(), Some(55));
+                assert!(state.ipv4().is_none());
+                assert!(state.ipv6().is_none());
+            }
+        }
+
+        mod service_state_partial_failures {
+            use super::*;
+
+            #[test]
+            fn invalid_ipv4_does_not_hide_state_error() {
+                let mut ipv4 = DBusDict::new();
+                ipv4.insert(IP_ADDRESS.into(), ovs("broken"));
+                ipv4.insert(IP_PREFIX.into(), ov(24u32));
+
+                let mut props = empty_props();
+                props.insert(PROP_STATE.into(), ovs("online"));
+                props.insert(PROP_IPV4.into(), ov(ipv4));
+
+                let err = service_state_from_properties("wifi0".into(), &props).unwrap_err();
+                matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+            }
+
+            #[test]
+            fn missing_strength_does_not_fail_service() {
+                let mut props = empty_props();
+                props.insert(PROP_STATE.into(), ovs("online"));
+
+                let state = service_state_from_properties("wifi0".into(), &props).unwrap();
+                assert_eq!(state.strength(), None);
+            }
         }
     }
-
-    mod parse_strength {
-        use super::*;
-
-        #[test]
-        fn missing_strength_is_none() {
-            let props = empty_props();
-            assert_eq!(parse_strength(&props).unwrap(), None);
-        }
-
-        #[test]
-        fn parses_strength() {
-            let mut props = empty_props();
-            props.insert(PROP_STRENGTH.into(), ov(73u8));
-
-            assert_eq!(parse_strength(&props).unwrap(), Some(73));
-        }
-
-        #[test]
-        fn invalid_strength_type_is_error() {
-            let mut props = empty_props();
-            props.insert(PROP_STRENGTH.into(), ovs("loud"));
-
-            let err = parse_strength(&props).unwrap_err();
-            matches!(err, ConnManError::InvalidProperty(PROP_STRENGTH));
-        }
-
-        #[test]
-        fn strength_above_100_is_preserved() {
-            let mut props = empty_props();
-            props.insert(PROP_STATE.into(), ovs("online"));
-            props.insert(PROP_STRENGTH.into(), ov(255u8));
-
-            let state = service_state_from_properties("wifi0".into(), &props).unwrap();
-            assert_eq!(state.strength(), Some(255));
-        }
-    }
-
-    mod parse_ip_blocks {
-        use super::*;
-
-        #[test]
-        fn missing_ipv4_block_is_none() {
-            let props = empty_props();
-            assert!(parse_ipv4(&props).unwrap().is_none());
-        }
-
-        #[test]
-        fn invalid_ipv4_block_type_is_error() {
-            let mut props = empty_props();
-            props.insert(PROP_IPV4.into(), ovs("not a dict"));
-
-            let err = parse_ipv4(&props).unwrap_err();
-            matches!(err, ConnManError::InvalidProperty(PROP_IPV4));
-        }
-
-        #[test]
-        fn invalid_ipv6_block_type_is_error() {
-            let mut props = empty_props();
-            props.insert(PROP_IPV6.into(), ov(123u32));
-
-            let err = parse_ipv6(&props).unwrap_err();
-            matches!(err, ConnManError::InvalidProperty(PROP_IPV6));
-        }
-    }
-
-    mod parse_ipv4_dict {
-        use super::*;
-
-        #[test]
-        fn parses_valid_ipv4_dict() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("192.168.1.10"));
-            dict.insert(IP_GATEWAY.into(), ovs("192.168.1.1"));
-            dict.insert(IP_PREFIX.into(), ov(24u32));
-
-            let ipv4 = parse_ipv4_dict(&dict).unwrap();
-            assert_eq!(ipv4.cidr(), "192.168.1.10/24");
-            assert_eq!(ipv4.gateway(), Ipv4Addr::new(192, 168, 1, 1));
-        }
-
-        #[test]
-        fn missing_address_is_error() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_PREFIX.into(), ov(24u32));
-
-            let err = parse_ipv4_dict(&dict).unwrap_err();
-            matches!(err, ConnManError::MissingProperty(IP_ADDRESS));
-        }
-    }
-
-    mod parse_ipv4_edge_cases {
-        use super::*;
-
-        #[test]
-        fn rejects_invalid_ipv4_address() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("999.999.999.999"));
-            dict.insert(IP_GATEWAY.into(), ovs("192.168.1.1"));
-            dict.insert(IP_PREFIX.into(), ov(24u32));
-
-            let err = parse_ipv4_dict(&dict).unwrap_err();
-            matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
-        }
-
-        #[test]
-        fn rejects_invalid_gateway_address() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("192.168.1.10"));
-            dict.insert(IP_GATEWAY.into(), ovs("nope"));
-            dict.insert(IP_PREFIX.into(), ov(24u32));
-
-            let err = parse_ipv4_dict(&dict).unwrap_err();
-            matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
-        }
-
-        #[test]
-        fn prefix_zero_is_allowed() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("0.0.0.0"));
-            dict.insert(IP_GATEWAY.into(), ovs("0.0.0.0"));
-            dict.insert(IP_PREFIX.into(), ov(0u32));
-
-            let ipv4 = parse_ipv4_dict(&dict).unwrap();
-            assert_eq!(ipv4.cidr(), "0.0.0.0/0");
-        }
-    }
-
-    mod parse_ipv6_dict {
-        use super::*;
-
-        #[test]
-        fn parses_ipv6_without_gateway() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
-            dict.insert(IP_PREFIX.into(), ov(64u32));
-
-            let ipv6 = parse_ipv6_dict(&dict).unwrap();
-            assert_eq!(ipv6.cidr(), "fe80::1/64");
-            assert!(ipv6.gateway().is_none());
-        }
-
-        #[test]
-        fn parses_ipv6_with_gateway() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
-            dict.insert(IP_GATEWAY.into(), ovs("fe80::ff"));
-            dict.insert(IP_PREFIX.into(), ov(64u32));
-
-            let ipv6 = parse_ipv6_dict(&dict).unwrap();
-            assert_eq!(ipv6.gateway().unwrap(), Ipv6Addr::from([0xfe80,0,0,0,0,0,0,0xff]));
-        }
-    }
-
-    mod parse_ipv6_edge_cases {
-        use super::*;
-
-        #[test]
-        fn rejects_invalid_ipv6_address() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("this:is:garbage"));
-            dict.insert(IP_PREFIX.into(), ov(64u32));
-
-            let err = parse_ipv6_dict(&dict).unwrap_err();
-            matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
-        }
-
-        #[test]
-        fn empty_gateway_is_error() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
-            dict.insert(IP_GATEWAY.into(), ovs(""));
-            dict.insert(IP_PREFIX.into(), ov(64u32));
-
-            let err = parse_ipv6_dict(&dict).unwrap_err();
-            matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
-        }
-
-        #[test]
-        fn missing_prefix_is_error() {
-            let mut dict = DBusDict::new();
-            dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
-
-            let err = parse_ipv6_dict(&dict).unwrap_err();
-            matches!(err, ConnManError::MissingProperty(IP_PREFIX));
-        }
-    }
-
-    mod downcast_dict {
-        use super::*;
-
-        #[test]
-        fn downcasts_dictionary() {
-            let mut inner = DBusDict::new();
-            inner.insert("Key".into(), ovs("Value"));
-
-            let value = ov(inner);
-            let dict = downcast_dict(&value, "Test").unwrap();
-
-            assert!(dict.contains_key("Key"));
-        }
-
-        #[test]
-        fn rejects_non_dictionary() {
-            let value = ovs("not a dict");
-            let err = downcast_dict(&value, "Test").unwrap_err();
-            matches!(err, ConnManError::InvalidProperty("Test"));
-        }
-    }
-
-    mod service_state_from_properties {
-        use super::*;
-
-        #[test]
-        fn builds_minimal_service_state() {
-            let mut props = empty_props();
-            props.insert(PROP_STATE.into(), ovs("ready"));
-            props.insert(PROP_STRENGTH.into(), ov(55u8));
-
-            let state =
-                service_state_from_properties("wifi0".into(), &props).unwrap();
-
-            assert_eq!(state.wifi_uid(), "wifi0");
-            assert_eq!(state.state(), ServiceStateKind::Ready);
-            assert_eq!(state.strength(), Some(55));
-            assert!(state.ipv4().is_none());
-            assert!(state.ipv6().is_none());
-        }
-    }
-
-    mod service_state_partial_failures {
-        use super::*;
-
-        #[test]
-        fn invalid_ipv4_does_not_hide_state_error() {
-            let mut ipv4 = DBusDict::new();
-            ipv4.insert(IP_ADDRESS.into(), ovs("broken"));
-            ipv4.insert(IP_PREFIX.into(), ov(24u32));
-
-            let mut props = empty_props();
-            props.insert(PROP_STATE.into(), ovs("online"));
-            props.insert(PROP_IPV4.into(), ov(ipv4));
-
-            let err = service_state_from_properties("wifi0".into(), &props).unwrap_err();
-            matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
-        }
-
-        #[test]
-        fn missing_strength_does_not_fail_service() {
-            let mut props = empty_props();
-            props.insert(PROP_STATE.into(), ovs("online"));
-
-            let state = service_state_from_properties("wifi0".into(), &props).unwrap();
-            assert_eq!(state.strength(), None);
-        }
-    }
-}
-
 }
 
 pub struct ConnManConnection {

@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, ResponseError};
 use serde_json::json;
-use thiserror::Error;
 use std::io;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ApiError {
@@ -34,18 +34,15 @@ impl ResponseError for ApiError {
         });
 
         match self {
-            ApiError::JobNotFound
-            | ApiError::NoAvailableSlots
-            | ApiError::InvalidSettings(_) =>
-                HttpResponse::BadRequest().json(body),
+            ApiError::JobNotFound | ApiError::NoAvailableSlots | ApiError::InvalidSettings(_) => {
+                HttpResponse::BadRequest().json(body)
+            }
 
-            ApiError::JobNotIdle
-            | ApiError::JobNotRunning =>
-                HttpResponse::Conflict().json(body),
+            ApiError::JobNotIdle | ApiError::JobNotRunning => HttpResponse::Conflict().json(body),
 
-            ApiError::Process(_)
-            | ApiError::Internal =>
-                HttpResponse::InternalServerError().json(body),
+            ApiError::Process(_) | ApiError::Internal => {
+                HttpResponse::InternalServerError().json(body)
+            }
         }
     }
 }

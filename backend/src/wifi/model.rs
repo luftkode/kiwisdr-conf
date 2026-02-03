@@ -76,11 +76,7 @@ impl ServiceState {
 }
 
 impl Ipv4Connection {
-    pub fn new(
-        address: Ipv4Addr,
-        prefix: u8,
-        gateway: Ipv4Addr,
-    ) -> Self {
+    pub fn new(address: Ipv4Addr, prefix: u8, gateway: Ipv4Addr) -> Self {
         Self {
             address,
             prefix,
@@ -115,11 +111,7 @@ impl Ipv4Connection {
 }
 
 impl Ipv6Connection {
-    pub fn new(
-        address: Ipv6Addr,
-        prefix: u8,
-        gateway: Option<Ipv6Addr>,
-    ) -> Self {
+    pub fn new(address: Ipv6Addr, prefix: u8, gateway: Option<Ipv6Addr>) -> Self {
         Self {
             address,
             prefix,

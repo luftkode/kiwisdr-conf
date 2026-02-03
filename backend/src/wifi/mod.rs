@@ -22,8 +22,8 @@ pub mod error {
     pub type Result<T> = std::result::Result<T, WifiError>;
 }
 
-use crate::wifi::model::ServiceState;
 use crate::wifi::error::Result as WifiResult;
+use crate::wifi::model::ServiceState;
 
 #[allow(async_fn_in_trait)] // I will never use "dyn Wifi"
 pub trait Wifi {

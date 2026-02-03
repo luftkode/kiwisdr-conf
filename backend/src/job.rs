@@ -1,21 +1,21 @@
-use serde::{Serialize, Deserialize};
-use tokio::process::Child;
-use tokio::io::{AsyncBufReadExt, BufReader, AsyncRead};
-use tokio::sync::{Mutex, MutexGuard};
-use rand::{Rng, thread_rng};
+use crate::state::*;
 use chrono::Utc;
-use std::sync::Arc;
+use rand::{Rng, thread_rng};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fmt::{self, Display, Formatter};
 use std::io;
 use std::process::Stdio;
-use std::collections::HashMap;
-use crate::state::*;
+use std::sync::Arc;
+use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
+use tokio::process::Child;
+use tokio::sync::{Mutex, MutexGuard};
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub struct Log {
     timestamp: u64, // Unix
-    data: String
+    data: String,
 }
 
 impl Log {
@@ -53,12 +53,12 @@ impl Logs {
         const LOG_COUNT: usize = 20;
 
         Self {
-            logs: self.logs.iter()
+            logs: self
+                .logs
+                .iter()
                 .rev()
                 .take(LOG_COUNT)
-                .map(|log| {
-                    log.get_truncated()
-                })
+                .map(|log| log.get_truncated())
                 .collect(),
         }
     }
@@ -86,7 +86,7 @@ impl Default for Logs {
 #[serde(rename_all = "lowercase")]
 pub enum RecordingType {
     PNG,
-    IQ
+    IQ,
 }
 
 impl Display for RecordingType {
@@ -108,12 +108,15 @@ pub enum RecorderSettingsError {
 impl Display for RecorderSettingsError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            RecorderSettingsError::ZoomTooHigh =>
-                write!(f, "Zoom too high"),
-            RecorderSettingsError::FrequencyAboveMax =>
-                write!(f, "The selected frequency range exceeds the maximum frequency"),
-            RecorderSettingsError::FrequencyBelowMin =>
-                write!(f, "The selected frequency range exceeds the minimum frequency"),
+            RecorderSettingsError::ZoomTooHigh => write!(f, "Zoom too high"),
+            RecorderSettingsError::FrequencyAboveMax => write!(
+                f,
+                "The selected frequency range exceeds the maximum frequency"
+            ),
+            RecorderSettingsError::FrequencyBelowMin => write!(
+                f,
+                "The selected frequency range exceeds the minimum frequency"
+            ),
         }
     }
 }
@@ -151,7 +154,8 @@ impl RecorderSettings {
     }
 
     pub fn validate(&self) -> Result<(), RecorderSettingsError> {
-        if self.zoom > 31 { // Prevent bitshifting a u32 by 32 bits
+        if self.zoom > 31 {
+            // Prevent bitshifting a u32 by 32 bits
             return Err(RecorderSettingsError::ZoomTooHigh);
         }
 
@@ -177,44 +181,40 @@ impl RecorderSettings {
 
     pub fn get_filename(&self, uid: &str) -> String {
         let filename_common = format!(
-            "{}_{}_Fq{}", 
-            uid, 
-            Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC"), 
+            "{}_{}_Fq{}",
+            uid,
+            Utc::now().format("%Y-%m-%d_%H-%M-%S_UTC"),
             to_scientific(self.frequency)
         );
-        
+
         match self.rec_type {
-            RecordingType::IQ => 
-                format!("{}_Bw1d2e4", filename_common),
-            RecordingType::PNG =>
-                format!("{}_Zm{}", filename_common, self.zoom),
-        }            
+            RecordingType::IQ => format!("{}_Bw1d2e4", filename_common),
+            RecordingType::PNG => format!("{}_Zm{}", filename_common, self.zoom),
+        }
     }
 
     pub fn as_args(&self, uid: &str) -> Vec<String> {
         let mut args: Vec<String> = vec![
-            "-s".into(), "127.0.0.1".into(),
-            "-p".into(), "8073".into(),
+            "-s".into(),
+            "127.0.0.1".into(),
+            "-p".into(),
+            "8073".into(),
             format!("--freq={:#.3}", (self.frequency as f64 / 1000.0)),
-            "-d".into(), "/var/recorder/recorded-files/".into(),
+            "-d".into(),
+            "/var/recorder/recorded-files/".into(),
             "--filename=KiwiRec".into(),
             format!("--station={}", self.get_filename(uid)),
         ];
 
         match self.rec_type {
-            RecordingType::PNG => 
-                args.extend([
-                    "--wf".into(), 
-                    "--wf-png".into(), 
-                    "--speed=4".into(), 
-                    "--modulation=am".into(), 
-                    format!("--zoom={}", self.zoom)
-                ]),
-            RecordingType::IQ => 
-                args.extend([
-                    "--kiwi-wav".into(), 
-                    "--modulation=iq".into()
-                ]),
+            RecordingType::PNG => args.extend([
+                "--wf".into(),
+                "--wf-png".into(),
+                "--speed=4".into(),
+                "--modulation=am".into(),
+                format!("--zoom={}", self.zoom),
+            ]),
+            RecordingType::IQ => args.extend(["--kiwi-wav".into(), "--modulation=iq".into()]),
         };
 
         if self.duration != 0 {
@@ -247,11 +247,11 @@ impl Display for RecorderSettings {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum JobStatus {
-    Idle,        // Waiting to start
-    Starting,    // Launching process
-    Running,     // Process active
-    Stopping,    // Being stopped manually (if kiwirecorder.py gets a duration it will automaticly stop)
-    Completed,   // One-shot job finished, never restart
+    Idle,      // Waiting to start
+    Starting,  // Launching process
+    Running,   // Process active
+    Stopping, // Being stopped manually (if kiwirecorder.py gets a duration it will automaticly stop)
+    Completed, // One-shot job finished, never restart
 }
 
 #[derive(Debug)]
@@ -284,8 +284,8 @@ impl Job {
         let now = Utc::now().timestamp() as u64;
 
         self.status == JobStatus::Idle
-        && self.next_run_start.unwrap_or(u64::MAX) <= now 
-        && self.process.is_none()
+            && self.next_run_start.unwrap_or(u64::MAX) <= now
+            && self.process.is_none()
     }
 
     pub fn id(&self) -> u32 {
@@ -308,11 +308,21 @@ impl Job {
             .spawn()?;
 
         if let Some(stdout) = child.stdout.take() {
-            tokio::spawn(Self::read_output(stdout, shared_job.clone(), "STDOUT", true));
+            tokio::spawn(Self::read_output(
+                stdout,
+                shared_job.clone(),
+                "STDOUT",
+                true,
+            ));
         }
 
         if let Some(stderr) = child.stderr.take() {
-        tokio::spawn(Self::read_output(stderr, shared_job.clone(), "STDERR", false));
+            tokio::spawn(Self::read_output(
+                stderr,
+                shared_job.clone(),
+                "STDERR",
+                false,
+            ));
         }
 
         let mut job = shared_job.lock().await;
@@ -335,17 +345,20 @@ impl Job {
         let mut job = shared_job.lock().await;
         job.mark_stopped_manually();
 
-
         Ok(())
     }
 
-    async fn read_output(pipe: impl AsyncRead + Unpin, job: Arc<Mutex<Job>>, pipe_tag: &str, responsible_for_exit: bool) {
+    async fn read_output(
+        pipe: impl AsyncRead + Unpin,
+        job: Arc<Mutex<Job>>,
+        pipe_tag: &str,
+        responsible_for_exit: bool,
+    ) {
         let reader = BufReader::new(pipe);
         let mut lines = reader.lines();
         while let Ok(Some(line)) = lines.next_line().await {
             let mut state: MutexGuard<'_, Job> = job.lock().await;
             state.push_log(format!("<{}> {}", pipe_tag, line));
-
         }
         if responsible_for_exit {
             let mut state: MutexGuard<'_, Job> = job.lock().await;
@@ -355,7 +368,7 @@ impl Job {
 
     fn push_log(&mut self, data: String) {
         self.logs.push(Log {
-            timestamp: Utc::now().timestamp() as u64, 
+            timestamp: Utc::now().timestamp() as u64,
             data: data,
         });
     }
@@ -364,10 +377,7 @@ impl Job {
         debug_assert!(self.process.is_none());
 
         if self.status != JobStatus::Idle {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Job not idle",
-            ));
+            return Err(io::Error::new(io::ErrorKind::Other, "Job not idle"));
         }
 
         self.status = JobStatus::Starting;
@@ -391,22 +401,20 @@ impl Job {
 
     fn mark_stopping(&mut self) -> io::Result<()> {
         if self.status != JobStatus::Running {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Job is not running",
-            ));
+            return Err(io::Error::new(io::ErrorKind::Other, "Job is not running"));
         }
 
         self.status = JobStatus::Stopping;
         Ok(())
     }
-    
+
     fn mark_exited(&mut self) {
         debug_assert!(
             self.status == JobStatus::Running || self.status == JobStatus::Stopping,
-            "mark_exited called, but job status was {:?}", self.status
+            "mark_exited called, but job status was {:?}",
+            self.status
         );
-        
+
         // One-shot jobs move to Completed so they dont start again
         self.status = if self.settings.interval.is_none() {
             JobStatus::Completed
@@ -418,8 +426,10 @@ impl Job {
     }
 
     fn mark_stopped_manually(&mut self) {
-        debug_assert!(self.status == JobStatus::Stopping, 
-            "mark_stopped_manually called, but job status was {:?}", self.status
+        debug_assert!(
+            self.status == JobStatus::Stopping,
+            "mark_stopped_manually called, but job status was {:?}",
+            self.status
         );
 
         // One-shot jobs move to Completed so they dont start again
@@ -453,7 +463,7 @@ impl From<&Job> for JobInfo {
             started_at: value.started_at,
             next_run_start: value.next_run_start,
             logs: value.logs.get_truncated(),
-            settings: value.settings, 
+            settings: value.settings,
         }
     }
 }
@@ -527,85 +537,52 @@ mod tests {
 
         #[test]
         fn zoom_too_high() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG, 
-                10_000_000, 
-                32, 
-                10, 
-                None
-            );
-            assert!(matches!(settings.validate(), Err(RecorderSettingsError::ZoomTooHigh)));
+            let settings = RecorderSettings::new(RecordingType::PNG, 10_000_000, 32, 10, None);
+            assert!(matches!(
+                settings.validate(),
+                Err(RecorderSettingsError::ZoomTooHigh)
+            ));
         }
 
         #[test]
         fn zoom_max_boundary() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                15_000_000,
-                31,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::PNG, 15_000_000, 31, 10, None);
             assert!(settings.validate().is_ok());
         }
 
         #[test]
         fn zoom_min_boundary() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                15_000_000,
-                0,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::PNG, 15_000_000, 0, 10, None);
             assert!(settings.validate().is_ok());
         }
 
         #[test]
         fn frequency_above_max() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                16_681_359,
-                0,
-                10,
-                None
-            );
-            assert!(matches!(settings.validate(), Err(RecorderSettingsError::FrequencyAboveMax)));
+            let settings = RecorderSettings::new(RecordingType::PNG, 16_681_359, 0, 10, None);
+            assert!(matches!(
+                settings.validate(),
+                Err(RecorderSettingsError::FrequencyAboveMax)
+            ));
         }
 
         #[test]
         fn frequency_below_min() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                147_500,
-                2,
-                10,
-                None
-            );
-            assert!(matches!(settings.validate(), Err(RecorderSettingsError::FrequencyBelowMin)));
+            let settings = RecorderSettings::new(RecordingType::PNG, 147_500, 2, 10, None);
+            assert!(matches!(
+                settings.validate(),
+                Err(RecorderSettingsError::FrequencyBelowMin)
+            ));
         }
 
         #[test]
         fn frequency_within_bounds() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                15_000_000,
-                0,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::PNG, 15_000_000, 0, 10, None);
             assert!(settings.validate().is_ok());
         }
 
         #[test]
         fn filename_format_png() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                947_500,
-                10,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::PNG, 947_500, 10, 10, None);
             let filename = settings.get_filename("UID123");
             assert!(filename.contains("UID123"));
             assert!(filename.contains("Fq9d475e5")); // scientific format
@@ -614,13 +591,7 @@ mod tests {
 
         #[test]
         fn filename_format_iq() {
-            let settings = RecorderSettings::new(
-                RecordingType::IQ,
-                16_490_000,
-                2,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::IQ, 16_490_000, 2, 10, None);
             let filename = settings.get_filename("UID123");
             assert!(filename.contains("UID123"));
             assert!(filename.contains("Fq1d649e7"));
@@ -629,13 +600,7 @@ mod tests {
 
         #[test]
         fn as_args_png() {
-            let settings = RecorderSettings::new(
-                RecordingType::PNG,
-                10_000_000,
-                5,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::PNG, 10_000_000, 5, 10, None);
             let args = settings.as_args("UID123");
             assert!(args.contains(&"--wf".to_string()));
             assert!(args.contains(&"--wf-png".to_string()));
@@ -644,13 +609,7 @@ mod tests {
 
         #[test]
         fn as_args_iq() {
-            let settings = RecorderSettings::new(
-                RecordingType::IQ,
-                10_000_000,
-                0,
-                10,
-                None
-            );
+            let settings = RecorderSettings::new(RecordingType::IQ, 10_000_000, 0, 10, None);
             let args = settings.as_args("UID123");
             assert!(args.contains(&"--kiwi-wav".to_string()));
             assert!(args.contains(&"--modulation=iq".to_string()));
@@ -670,7 +629,7 @@ mod tests {
                 timestamp: 147_000,
                 data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aliquam ultrices scelerisque mi, eget molestie ipsum vestibulum tristique. Nulla vitae mi.".into(),
             };
-        
+
             assert_eq!(input.get_truncated(), output)
         }
 
@@ -684,7 +643,7 @@ mod tests {
                 timestamp: 200_000,
                 data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur lacinia congue dui at euismod. Etiam sed lorem sit amet odio sollicitudin feugiat. Phasellus risus leo, fermentum et posuere at orci.".into(),
             };
-        
+
             assert_eq!(input.get_truncated(), output)
         }
 
@@ -700,12 +659,13 @@ mod tests {
                 timestamp: 500_000,
                 data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas sodales ligula leo, sed tempus velit vehicula eget. Morbi orci eros, commodo cursus sapien vitae, fringilla blandit orci. Praesent ege...".into(),
             };
-        
+
             assert_eq!(input.get_truncated(), output)
         }
 
         #[test]
-        fn get_truncated_4() { // Test cutting multibyte utf8 chars
+        fn get_truncated_4() {
+            // Test cutting multibyte utf8 chars
             let input = Log {
                 timestamp: 500_000,
                 data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie hendrerit scelerisque. Varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. A multibyte UTF-8 char: 𒈙, right at the border.".into(),
@@ -714,7 +674,7 @@ mod tests {
                 timestamp: 500_000,
                 data: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie hendrerit scelerisque. Varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. A multibyte UTF-8 char: 𒈙...".into(),
             };
-        
+
             assert_eq!(input.get_truncated(), output)
         }
     }
@@ -734,24 +694,23 @@ mod tests {
                         timestamp: 654_321,
                         data: "b".into(),
                     },
-                ].into()
+                ]
+                .into(),
             };
 
             let mut logs = Logs::default();
             logs.push(Log {
-                    timestamp: 123_456,
-                    data: "a".into(),
-                },
-            );
+                timestamp: 123_456,
+                data: "a".into(),
+            });
             logs.push(Log {
-                    timestamp: 654_321,
-                    data: "b".into(),
-                },
-            );
+                timestamp: 654_321,
+                data: "b".into(),
+            });
 
             assert_eq!(logs, target);
         }
-        
+
         #[test]
         fn push_drops_old() {
             let mut logs = Logs::new(VecDeque::new());
