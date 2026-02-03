@@ -517,7 +517,21 @@ mod client {
     }
 }
 
-/// Translates dbus values into `ServiceState`
+/// Translates ConnMan D-Bus values into strongly typed `ServiceState`
+/// domain objects.
+///
+/// This module is intentionally **pure and side-effect free**:
+/// - No D-Bus calls
+/// - No global state
+/// - No policy decisions
+///
+/// Its sole responsibility is to validate and convert the loosely typed
+/// `a{sv}` dictionaries returned by ConnMan into Rust types used by the
+/// rest of the application.
+///
+/// Any deviation from ConnMan’s expected schema (missing properties,
+/// wrong types, malformed addresses) is treated as an error and surfaced
+/// explicitly via `ConnManError`.
 mod translation {
     use crate::wifi::connman::consts::*;
     use crate::wifi::connman::error::{ConnManError, Result};
@@ -526,14 +540,34 @@ mod translation {
     use std::net::{Ipv4Addr, Ipv6Addr};
     use zvariant::{Dict, OwnedValue};
 
+    /// Convenience alias for ConnMan property dictionaries.
+    ///
+    /// ConnMan represents most structured data as `a{sv}` maps.
+    /// At this layer we normalize those into owned Rust maps for
+    /// predictable access and lifetimes.
     type DBusDict = HashMap<String, OwnedValue>;
 
+    /// Parse the `"State"` property into a `ServiceStateKind`.
+    ///
+    /// # Errors
+    ///
+    /// - `MissingProperty` if the `"State"` key is absent
+    /// - `InvalidProperty` if the value is not a string
+    /// - `InvalidProperty` if the state string is unknown
     fn parse_state(props: &DBusDict) -> Result<ServiceStateKind> {
         let raw = get_string(props, PROP_STATE)?;
         ServiceStateKind::try_from(raw.as_str())
             .map_err(|_| ConnManError::InvalidProperty(PROP_STATE))
     }
 
+    /// Parse the optional `"Strength"` property.
+    ///
+    /// ConnMan reports Wi-Fi strength as an unsigned byte (0–100),
+    /// but values outside that range are preserved verbatim.
+    ///
+    /// # Errors
+    ///
+    /// - `InvalidProperty` if the value exists but is not a `u8`
     fn parse_strength(props: &DBusDict) -> Result<Option<u8>> {
         match props.get(PROP_STRENGTH) {
             None => Ok(None),
@@ -544,6 +578,12 @@ mod translation {
         }
     }
 
+    /// Parse the optional `"IPv4"` configuration block.
+    ///
+    /// # Errors
+    ///
+    /// - `InvalidProperty` if the block exists but is not a dictionary
+    /// - Any error returned by `parse_ipv4_dict`
     fn parse_ipv4(props: &DBusDict) -> Result<Option<Ipv4Connection>> {
         let value = match props.get(PROP_IPV4) {
             None => return Ok(None),
@@ -554,6 +594,12 @@ mod translation {
         Ok(Some(parse_ipv4_dict(&dict)?))
     }
 
+    /// Parse the optional `"IPv6"` configuration block.
+    ///
+    /// # Errors
+    ///
+    /// - `InvalidProperty` if the block exists but is not a dictionary
+    /// - Any error returned by `parse_ipv6_dict`
     fn parse_ipv6(props: &DBusDict) -> Result<Option<Ipv6Connection>> {
         let value = match props.get(PROP_IPV6) {
             None => return Ok(None),
@@ -564,6 +610,18 @@ mod translation {
         Ok(Some(parse_ipv6_dict(&dict)?))
     }
 
+    /// Parse an IPv4 configuration dictionary.
+    ///
+    /// Expected keys:
+    /// - `"Address"` → IPv4 address string
+    /// - `"Gateway"` → IPv4 address string
+    /// - `"Prefix"` → CIDR prefix length
+    ///
+    /// # Errors
+    ///
+    /// - `MissingProperty` for any required key
+    /// - `InvalidProperty` for incorrect value types
+    /// - `InvalidAddress` for malformed IP strings
     fn parse_ipv4_dict(dict: &DBusDict) -> Result<Ipv4Connection> {
         let address: Ipv4Addr = get_string(dict, IP_ADDRESS)?
             .parse()
@@ -578,6 +636,18 @@ mod translation {
         Ok(Ipv4Connection::new(address, prefix, gateway))
     }
 
+    /// Parse an IPv6 configuration dictionary.
+    ///
+    /// Expected keys:
+    /// - `"Address"` → IPv6 address string
+    /// - `"Prefix"` → CIDR prefix length
+    /// - `"Gateway"` → IPv6 address string (optional)
+    ///
+    /// # Errors
+    ///
+    /// - `MissingProperty` for required keys
+    /// - `InvalidProperty` for incorrect value types
+    /// - `InvalidAddress` for malformed IP strings
     fn parse_ipv6_dict(dict: &DBusDict) -> Result<Ipv6Connection> {
         let address: Ipv6Addr = get_string(dict, IP_ADDRESS)?
             .parse()
@@ -607,6 +677,16 @@ mod translation {
         Ok(Ipv6Connection::new(address, prefix, gateway))
     }
 
+    /// Convert a D-Bus `Dict` value into a owned `HashMap<String, OwnedValue>`.
+    ///
+    /// ConnMan frequently nests dictionaries inside `OwnedValue`.
+    /// This helper performs a **deep, owned conversion** so callers
+    /// can safely access values without lifetime gymnastics.
+    ///
+    /// # Errors
+    ///
+    /// - `InvalidProperty` if the value is not a dictionary
+    /// - `InvalidProperty` if any key is not a string
     fn downcast_dict(value: &OwnedValue, name: &'static str) -> Result<DBusDict> {
         let dict = value
             .downcast_ref::<Dict>()
@@ -628,6 +708,12 @@ mod translation {
         Ok(out)
     }
 
+    /// Fetch a required string property.
+    ///
+    /// # Errors
+    ///
+    /// - `MissingProperty` if the key is absent
+    /// - `InvalidProperty` if the value is not a string
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
         let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
 
@@ -637,6 +723,12 @@ mod translation {
         }
     }
 
+    /// Fetch a required `u32` property.
+    ///
+    /// # Errors
+    ///
+    /// - `MissingProperty` if the key is absent
+    /// - `InvalidProperty` if the value is not a `u32`
     fn get_u32(props: &DBusDict, key: &'static str) -> Result<u32> {
         let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
 
@@ -646,6 +738,15 @@ mod translation {
         }
     }
 
+    /// Build a complete `ServiceState` from a ConnMan service property map.
+    ///
+    /// This is the primary entry point for the translation layer.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first error encountered while parsing required
+    /// or optional fields. Optional fields do not suppress errors
+    /// if present but malformed.
     pub fn service_state_from_properties(
         wifi_uid: String,
         props: &DBusDict,
