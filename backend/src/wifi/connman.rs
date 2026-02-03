@@ -553,7 +553,7 @@ mod translation {
         };
 
         let dict = downcast_dict(value, PROP_IPV4)?;
-        Ok(Some(parse_ipv4_dict(dict)?))
+        Ok(Some(parse_ipv4_dict(&dict)?))
     }
 
     fn parse_ipv6(props: &DBusDict) -> Result<Option<Ipv6Connection>> {
@@ -563,7 +563,7 @@ mod translation {
         };
 
         let dict = downcast_dict(value, PROP_IPV6)?;
-        Ok(Some(parse_ipv6_dict(dict)?))
+        Ok(Some(parse_ipv6_dict(&dict)?))
     }
 
     fn parse_ipv4_dict(dict: &DBusDict) -> Result<Ipv4Connection> {
@@ -609,12 +609,11 @@ mod translation {
         Ok(Ipv6Connection::new(address, prefix, gateway))
     }
 
-    fn downcast_dict<'a>(
-        value: &'a OwnedValue,
+    fn downcast_dict(
+        value: &OwnedValue,
         name: &'static str,
-    ) -> Result<&'a DBusDict> {
-        value
-            .downcast_ref::<DBusDict>()
+    ) -> Result<DBusDict> {
+        DBusDict::try_from(value)
             .map_err(|_| ConnManError::InvalidProperty(name))
     }
 
