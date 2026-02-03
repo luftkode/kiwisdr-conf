@@ -519,14 +519,12 @@ mod client {
 
 /// Translates dbus values into `ServiceState`
 mod translation {
-    use std::collections::HashMap;
-    use std::net::{Ipv4Addr, Ipv6Addr};
-
-    use zvariant::OwnedValue;
-
     use crate::wifi::connman::consts::*;
     use crate::wifi::connman::error::{ConnManError, Result};
     use crate::wifi::model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind};
+    use std::collections::HashMap;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+    use zvariant::{Dict, OwnedValue};
 
     type DBusDict = HashMap<String, OwnedValue>;
 
@@ -609,12 +607,25 @@ mod translation {
         Ok(Ipv6Connection::new(address, prefix, gateway))
     }
 
-    fn downcast_dict(
-        value: &OwnedValue,
-        name: &'static str,
-    ) -> Result<DBusDict> {
-        DBusDict::try_from(value)
-            .map_err(|_| ConnManError::InvalidProperty(name))
+    fn downcast_dict(value: &OwnedValue, name: &'static str) -> Result<DBusDict> {
+        let dict = value
+            .downcast_ref::<Dict>()
+            .map_err(|_| ConnManError::InvalidProperty(name))?;
+
+        let mut out = DBusDict::new();
+        for (k, v) in dict {
+            let key = k
+                .downcast_ref::<String>()
+                .map_err(|_| ConnManError::InvalidProperty(name))?
+                .clone();
+
+            out.insert(
+                key,
+                OwnedValue::try_from(v).map_err(|_| ConnManError::InvalidProperty(name))?,
+            );
+        }
+
+        Ok(out)
     }
 
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
@@ -644,13 +655,7 @@ mod translation {
         let ipv4 = parse_ipv4(props)?;
         let ipv6 = parse_ipv6(props)?;
 
-        Ok(ServiceState::new(
-            wifi_uid,
-            state,
-            strength,
-            ipv4,
-            ipv6,
-        ))
+        Ok(ServiceState::new(wifi_uid, state, strength, ipv4, ipv6))
     }
 
     #[cfg(test)]
