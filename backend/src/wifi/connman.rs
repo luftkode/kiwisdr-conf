@@ -52,7 +52,7 @@ pub mod error {
 
 use crate::wifi::{
     Wifi,
-    error::{WifiResult, WifiError},
+    error::{WifiError, WifiResult},
     model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind},
 };
 use error::{ConnManError, Result};
@@ -751,7 +751,6 @@ mod translation {
     /// let state = service_state_from_properties("wifi0".into(), &props).unwrap();
     /// assert_eq!(state.state(), ServiceStateKind::Online);
     /// ```
-    #[must_use]
     pub fn service_state_from_properties(
         wifi_uid: String,
         props: &DBusDict,

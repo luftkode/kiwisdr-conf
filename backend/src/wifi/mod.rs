@@ -61,8 +61,8 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.connect("wifi0", Some("password")).await?;
-    /// # Ok(())
+    ///     wifi.connect("wifi0", Some("password")).await?;
+    ///     # Ok(())
     /// # }
     /// ```
     async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()>;
@@ -78,8 +78,8 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.disconnect("wifi0").await?;
-    /// # Ok(())
+    ///     wifi.disconnect("wifi0").await?;
+    ///     # Ok(())
     /// # }
     /// ```
     async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()>;
