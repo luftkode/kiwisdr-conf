@@ -4,7 +4,8 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ServiceState {
-    wifi_uid: String,
+    ssid: Option<String>,
+    uid: String,
     state: ServiceStateKind,
     strength: Option<u8>,
     ipv4: Option<Ipv4Connection>,
@@ -39,14 +40,16 @@ pub struct Ipv6Connection {
 
 impl ServiceState {
     pub fn new(
-        wifi_uid: String,
+        ssid: Option<String>,   
+        uid: String,
         state: ServiceStateKind,
         strength: Option<u8>,
         ipv4: Option<Ipv4Connection>,
         ipv6: Option<Ipv6Connection>,
     ) -> Self {
         Self {
-            wifi_uid,
+            ssid,
+            uid,
             state,
             strength,
             ipv4,
@@ -54,8 +57,12 @@ impl ServiceState {
         }
     }
 
-    pub fn wifi_uid(&self) -> &str {
-        &self.wifi_uid
+    pub fn ssid(&self) -> Option<&str> {
+        self.ssid.as_deref()
+    }
+
+    pub fn uid(&self) -> &str {
+        &self.uid
     }
 
     pub fn state(&self) -> ServiceStateKind {
