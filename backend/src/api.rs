@@ -1,10 +1,10 @@
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use serde_json::json;
 
-use crate::error::*;
-use crate::job::*;
-use crate::state::*;
-use crate::wifi::{connman::ConnManConnection, *};
+use crate::error::ApiError;
+use crate::job::{Job, JobInfo, RecorderSettings, create_job};
+use crate::state::AppState;
+use crate::wifi::{Wifi, connman::ConnManConnection};
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(status)
