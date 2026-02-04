@@ -823,14 +823,16 @@ mod translation {
                 props.insert(PROP_STATE.into(), ovs("nonsense"));
 
                 let err = parse_state(&props).unwrap_err();
-                matches!(err, ConnManError::InvalidProperty(PROP_STATE));
+                let s = PROP_STATE.to_string();
+                matches!(err, ConnManError::InvalidProperty(e) if e == s);
             }
 
             #[test]
             fn missing_state_is_error() {
                 let props = empty_props();
                 let err = parse_state(&props).unwrap_err();
-                matches!(err, ConnManError::MissingProperty(PROP_STATE));
+                let s = PROP_STATE.to_string();
+                matches!(err, ConnManError::MissingProperty(e) if e == s);
             }
         }
 
@@ -857,7 +859,8 @@ mod translation {
                 props.insert(PROP_STRENGTH.into(), ovs("loud"));
 
                 let err = parse_strength(&props).unwrap_err();
-                matches!(err, ConnManError::InvalidProperty(PROP_STRENGTH));
+                let s = PROP_STRENGTH.to_string();
+                matches!(err, ConnManError::InvalidProperty(e) if e == s);
             }
 
             #[test]
@@ -886,7 +889,8 @@ mod translation {
                 props.insert(PROP_IPV4.into(), ovs("not a dict"));
 
                 let err = parse_ipv4(&props).unwrap_err();
-                matches!(err, ConnManError::InvalidProperty(PROP_IPV4));
+                let s = PROP_IPV4.to_string();
+                matches!(err, ConnManError::InvalidProperty(e) if e == s);
             }
 
             #[test]
@@ -895,7 +899,8 @@ mod translation {
                 props.insert(PROP_IPV6.into(), ov(123u32));
 
                 let err = parse_ipv6(&props).unwrap_err();
-                matches!(err, ConnManError::InvalidProperty(PROP_IPV6));
+                let s = PROP_IPV6.to_string();
+                matches!(err, ConnManError::InvalidProperty(e) if e == s);
             }
         }
 
@@ -920,7 +925,8 @@ mod translation {
                 dict.insert(IP_PREFIX.into(), ov(24u32));
 
                 let err = parse_ipv4_dict(&dict).unwrap_err();
-                matches!(err, ConnManError::MissingProperty(IP_ADDRESS));
+                let s = IP_ADDRESS.to_string();
+                matches!(err, ConnManError::MissingProperty(e) if e == s);
             }
         }
 
@@ -935,7 +941,8 @@ mod translation {
                 dict.insert(IP_PREFIX.into(), ov(24u32));
 
                 let err = parse_ipv4_dict(&dict).unwrap_err();
-                matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+                let s = IP_ADDRESS.to_string();
+                matches!(err, ConnManError::InvalidAddress(e) if e == s);
             }
 
             #[test]
@@ -946,7 +953,8 @@ mod translation {
                 dict.insert(IP_PREFIX.into(), ov(24u32));
 
                 let err = parse_ipv4_dict(&dict).unwrap_err();
-                matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
+                let s = IP_GATEWAY.to_string();
+                matches!(err, ConnManError::InvalidAddress(e) if e == s);
             }
 
             #[test]
@@ -1000,7 +1008,8 @@ mod translation {
                 dict.insert(IP_PREFIX.into(), ov(64u32));
 
                 let err = parse_ipv6_dict(&dict).unwrap_err();
-                matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+                let s = IP_ADDRESS.to_string();
+                matches!(err, ConnManError::InvalidAddress(e) if e == s);
             }
 
             #[test]
@@ -1011,7 +1020,8 @@ mod translation {
                 dict.insert(IP_PREFIX.into(), ov(64u32));
 
                 let err = parse_ipv6_dict(&dict).unwrap_err();
-                matches!(err, ConnManError::InvalidAddress(IP_GATEWAY));
+                let s = IP_GATEWAY.to_string();
+                matches!(err, ConnManError::InvalidAddress(e) if e == s);
             }
 
             #[test]
@@ -1020,7 +1030,8 @@ mod translation {
                 dict.insert(IP_ADDRESS.into(), ovs("fe80::1"));
 
                 let err = parse_ipv6_dict(&dict).unwrap_err();
-                matches!(err, ConnManError::MissingProperty(IP_PREFIX));
+                let s = IP_PREFIX.to_string();
+                matches!(err, ConnManError::MissingProperty(e) if e == s);
             }
         }
 
@@ -1042,7 +1053,8 @@ mod translation {
             fn rejects_non_dictionary() {
                 let value = ovs("not a dict");
                 let err = downcast_dict(&value, "Test").unwrap_err();
-                matches!(err, ConnManError::InvalidProperty("Test"));
+                let s = "Test".to_string();
+                matches!(err, ConnManError::InvalidProperty(e) if e == s);
             }
         }
 
@@ -1057,7 +1069,7 @@ mod translation {
 
                 let state = service_state_from_properties("wifi0".into(), &props).unwrap();
 
-                assert_eq!(state.wifi_uid(), "wifi0");
+                assert_eq!(state.uid(), "wifi0"); // replace wifi_uid() with uid()
                 assert_eq!(state.state(), ServiceStateKind::Ready);
                 assert_eq!(state.strength(), Some(55));
                 assert!(state.ipv4().is_none());
@@ -1079,7 +1091,8 @@ mod translation {
                 props.insert(PROP_IPV4.into(), ov(ipv4));
 
                 let err = service_state_from_properties("wifi0".into(), &props).unwrap_err();
-                matches!(err, ConnManError::InvalidAddress(IP_ADDRESS));
+                let s = IP_ADDRESS.to_string();
+                matches!(err, ConnManError::InvalidAddress(e) if e == s);
             }
 
             #[test]
@@ -1178,7 +1191,7 @@ impl Wifi for ConnManConnection {
                 self.connection(),
                 &path,
                 "Passphrase",
-                psk.to_string().into(),
+                zvariant::Str::from(psk).into(),
             )
             .await
             .map_err(|e| {
