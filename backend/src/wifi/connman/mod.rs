@@ -59,7 +59,10 @@ pub mod error {
 
 use crate::wifi::{
     Wifi,
-    connman::{consts::*, error::Result},
+    connman::{
+        consts::*,
+        error::{ConnManError, Result},
+    },
     error::{WifiError, WifiResult},
     model::{ServiceState, ServiceStateKind},
 };
@@ -72,8 +75,10 @@ pub struct ConnManConnection {
 
 impl ConnManConnection {
     /// Opens a connection to the system D-Bus.
-    pub async fn new() -> Result<Self> {
-        let connection = zbus::Connection::system().await?;
+    pub async fn new() -> WifiResult<Self> {
+        let connection = zbus::Connection::system()
+            .await
+            .map_err(ConnManError::from)?;
         Ok(Self { connection })
     }
 

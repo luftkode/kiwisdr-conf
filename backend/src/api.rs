@@ -4,6 +4,7 @@ use serde_json::json;
 use crate::error::*;
 use crate::job::*;
 use crate::state::*;
+use crate::wifi::{connman::ConnManConnection, *};
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(status)
@@ -122,4 +123,22 @@ async fn remove_recorder(
     Job::stop(shared_job.clone()).await?;
 
     Ok(HttpResponse::Ok().json(json!({ "message": "Recorder deleted successfully" })))
+}
+
+#[get("/api/wifi")]
+async fn wifi_status() -> Result<impl Responder, ApiError> {
+    let conn = ConnManConnection::new().await?;
+    let wifis = conn.get_available().await?;
+
+    Ok(HttpResponse::Ok().json(wifis))
+}
+
+#[post("/api/wifi/connect")]
+async fn wifi_conn() -> Result<impl Responder, ApiError> {
+    Ok(HttpResponse::Ok().body("Online"))
+}
+
+#[post("/api/wifi/disconnect")]
+async fn wifi_disconn() -> Result<impl Responder, ApiError> {
+    Ok(HttpResponse::Ok().body("Online"))
 }
