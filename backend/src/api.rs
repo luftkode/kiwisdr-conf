@@ -12,7 +12,10 @@ pub fn init_routes(cfg: &mut web::ServiceConfig) {
         .service(stop_recorder)
         .service(remove_recorder)
         .service(recorder_status_all)
-        .service(recorder_status_one);
+        .service(recorder_status_one)
+        .service(wifi_status)
+        .service(wifi_conn)
+        .service(wifi_disconn);
 }
 
 #[get("/api/")]
