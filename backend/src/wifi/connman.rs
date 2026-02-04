@@ -289,7 +289,9 @@ mod client {
         let props: DBusDict = proxy.call("GetProperties", &()).await?;
 
         props.get("State").cloned().ok_or_else(|| {
-            super::error::ConnManError::MissingProperty("ConnMan service missing State property".to_string())
+            super::error::ConnManError::MissingProperty(
+                "ConnMan service missing State property".to_string(),
+            )
         })
     }
 
@@ -695,9 +697,7 @@ mod translation {
     /// - `InvalidProperty` if the value is not a dictionary
     /// - `InvalidProperty` if any key is not a string
     fn downcast_dict(value: &OwnedValue, name: &'static str) -> Result<DBusDict> {
-        let dict = value
-            .downcast_ref::<Dict>()
-            .map_err(|_| not_a_dict(name))?;
+        let dict = value.downcast_ref::<Dict>().map_err(|_| not_a_dict(name))?;
 
         let mut out = DBusDict::new();
         for (k, v) in dict {
@@ -708,7 +708,8 @@ mod translation {
 
             out.insert(
                 key.clone(),
-                OwnedValue::try_from(v.clone()).map_err(|_| invalid_type(name, &key, "OwnedValue", v))?,
+                OwnedValue::try_from(v.clone())
+                    .map_err(|_| invalid_type(name, &key, "OwnedValue", v))?,
             );
         }
 
@@ -723,7 +724,6 @@ mod translation {
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
         let v = props.get(key).ok_or_else(|| missing(key))?;
         v.downcast_ref::<String>()
-            .map(|s| s.clone())
             .map_err(|_| invalid_type("props", key, "String", v))
     }
 
@@ -1104,10 +1104,7 @@ mod translation {
 
 use crate::wifi::{
     Wifi,
-    connman::{
-        consts::*,
-        error::Result,
-    },
+    connman::{consts::*, error::Result},
     error::{WifiError, WifiResult},
     model::ServiceState,
 };
