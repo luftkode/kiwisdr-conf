@@ -79,6 +79,7 @@ authorityKeyIdentifier = keyid,issuer
 
 [alt_names]
 DNS.1 = ${HOST}
+DNS.2 = localhost
 IP.1  = ${IPV4}
 EOF
 
