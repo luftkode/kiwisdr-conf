@@ -292,7 +292,7 @@ mod client {
         let props: DBusDict = proxy.call("GetProperties", &()).await?;
 
         props.get("State").cloned().ok_or_else(|| {
-            super::error::ConnManError::MissingProperty("ConnMan service missing State property")
+            super::error::ConnManError::MissingProperty("ConnMan service missing State property".to_string())
         })
     }
 
@@ -525,6 +525,7 @@ mod translation {
     use crate::wifi::connman::error::{ConnManError, Result};
     use crate::wifi::model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind};
     use std::collections::HashMap;
+    use std::fmt::Debug;
     use std::net::{Ipv4Addr, Ipv6Addr};
     use zvariant::{Dict, OwnedValue};
 
@@ -570,8 +571,7 @@ mod translation {
     /// - `InvalidProperty` if the state string is unknown
     fn parse_state(props: &DBusDict) -> Result<ServiceStateKind> {
         let raw = get_string(props, PROP_STATE)?;
-        ServiceStateKind::try_from(raw.as_str())
-            .map_err(|_| ConnManError::InvalidProperty(PROP_STATE))
+        ServiceStateKind::try_from(raw.as_str()).map_err(|_| invalid(PROP_STATE, raw))
     }
 
     /// Parse the optional `"Strength"` property.
@@ -587,7 +587,7 @@ mod translation {
             None => Ok(None),
             Some(v) => match v.downcast_ref::<u8>() {
                 Ok(n) => Ok(Some(n)),
-                Err(_) => Err(ConnManError::InvalidProperty(PROP_STRENGTH)),
+                Err(_) => Err(invalid(PROP_STRENGTH, v)),
             },
         }
     }
@@ -639,11 +639,11 @@ mod translation {
     fn parse_ipv4_dict(dict: &DBusDict) -> Result<Ipv4Connection> {
         let address: Ipv4Addr = get_string(dict, IP_ADDRESS)?
             .parse()
-            .map_err(|_| ConnManError::InvalidAddress(IP_ADDRESS))?;
+            .map_err(|_| invalid_addr("IPv4", IP_ADDRESS, dict.get(IP_ADDRESS)))?;
 
         let gateway: Ipv4Addr = get_string(dict, IP_GATEWAY)?
             .parse()
-            .map_err(|_| ConnManError::InvalidAddress(IP_GATEWAY))?;
+            .map_err(|_| invalid_addr("IPv4", IP_GATEWAY, dict.get(IP_GATEWAY)))?;
 
         let prefix = get_u32(dict, IP_PREFIX)? as u8;
 
@@ -665,26 +665,22 @@ mod translation {
     fn parse_ipv6_dict(dict: &DBusDict) -> Result<Ipv6Connection> {
         let address: Ipv6Addr = get_string(dict, IP_ADDRESS)?
             .parse()
-            .map_err(|_| ConnManError::InvalidAddress(IP_ADDRESS))?;
+            .map_err(|_| invalid_addr("IPv6", IP_ADDRESS, dict.get(IP_ADDRESS)))?;
 
         let prefix = get_u32(dict, IP_PREFIX)? as u8;
 
         let gateway = match dict.get(IP_GATEWAY) {
             None => None,
             Some(v) => {
-                let s = match v.downcast_ref::<String>() {
-                    Ok(s) => s,
-                    Err(_) => return Err(ConnManError::InvalidProperty(IP_GATEWAY)),
-                };
+                let s = v
+                    .downcast_ref::<String>()
+                    .map_err(|_| invalid_type("IPv6", IP_GATEWAY, "String", v))?;
 
                 if s.is_empty() {
-                    return Err(ConnManError::InvalidAddress(IP_GATEWAY));
+                    return Err(invalid_addr("IPv6", IP_GATEWAY, s));
                 }
 
-                Some(
-                    s.parse()
-                        .map_err(|_| ConnManError::InvalidAddress(IP_GATEWAY))?,
-                )
+                Some(s.parse().map_err(|_| invalid_addr("IPv6", IP_GATEWAY, s))?)
             }
         };
 
@@ -704,18 +700,18 @@ mod translation {
     fn downcast_dict(value: &OwnedValue, name: &'static str) -> Result<DBusDict> {
         let dict = value
             .downcast_ref::<Dict>()
-            .map_err(|_| ConnManError::InvalidProperty(name))?;
+            .map_err(|e| not_a_dict(name))?;
 
         let mut out = DBusDict::new();
         for (k, v) in dict {
             let key = k
                 .downcast_ref::<String>()
-                .map_err(|_| ConnManError::InvalidProperty(name))?
+                .map_err(|e| invalid_type(name, "key", "String", k))?
                 .clone();
 
             out.insert(
-                key,
-                OwnedValue::try_from(v).map_err(|_| ConnManError::InvalidProperty(name))?,
+                key.clone(),
+                OwnedValue::try_from(v.clone()).map_err(|_| invalid_type(name, &key, "OwnedValue", v))?,
             );
         }
 
@@ -728,12 +724,10 @@ mod translation {
     ///
     /// Returns an error if the property is missing or if the value is not a string.
     fn get_string(props: &DBusDict, key: &'static str) -> Result<String> {
-        let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
-
-        match v.downcast_ref::<String>() {
-            Ok(s) => Ok(s),
-            Err(_) => Err(ConnManError::InvalidProperty(key)),
-        }
+        let v = props.get(key).ok_or_else(|| missing(key))?;
+        v.downcast_ref::<String>()
+            .map(|s| s.clone())
+            .map_err(|_| invalid_type("props", key, "String", v))
     }
 
     /// Fetch a required `u32` property.
@@ -743,12 +737,13 @@ mod translation {
     /// - `MissingProperty` if the key is absent
     /// - `InvalidProperty` if the value is not a `u32`
     fn get_u32(props: &DBusDict, key: &'static str) -> Result<u32> {
-        let v = props.get(key).ok_or(ConnManError::MissingProperty(key))?;
+        let v = props.get(key).ok_or_else(|| missing(key))?;
+        v.downcast_ref::<u32>()
+            .map_err(|_| invalid_type("props", key, "u32", v))
+    }
 
-        match v.downcast_ref::<u32>() {
-            Ok(n) => Ok(n),
-            Err(_) => Err(ConnManError::InvalidProperty(key)),
-        }
+    fn get_ssid(props: &DBusDict) -> Option<String> {
+        props.get(PROP_NAME)?.downcast_ref::<String>().ok()
     }
 
     /// Constructs a [`ServiceState`] from a ConnMan service property map.
@@ -780,12 +775,15 @@ mod translation {
         wifi_uid: String,
         props: &DBusDict,
     ) -> Result<ServiceState> {
+        let ssid = get_ssid(props);
         let state = parse_state(props)?;
         let strength = parse_strength(props)?;
         let ipv4 = parse_ipv4(props)?;
         let ipv6 = parse_ipv6(props)?;
 
-        Ok(ServiceState::new(wifi_uid, state, strength, ipv4, ipv6))
+        Ok(ServiceState::new(
+            ssid, wifi_uid, state, strength, ipv4, ipv6,
+        ))
     }
 
     #[cfg(test)]
