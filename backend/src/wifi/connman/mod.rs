@@ -61,7 +61,7 @@ use crate::wifi::{
     Wifi,
     connman::{consts::*, error::Result},
     error::{WifiError, WifiResult},
-    model::ServiceState,
+    model::{ServiceState, ServiceStateKind},
 };
 use zbus::Connection;
 use zvariant::{ObjectPath, OwnedObjectPath};
@@ -96,33 +96,31 @@ impl ConnManConnection {
 
 impl Wifi for ConnManConnection {
     async fn get_available(&self) -> WifiResult<Vec<ServiceState>> {
-        let wifi_tech: OwnedObjectPath = OwnedObjectPath::from(
-            ObjectPath::try_from(format!("{}/technology/wifi", CONNMAN_ROOT_PATH))
-                .map_err(|_| WifiError::NotFound("Invalid wifi technology path".into()))?,
-        );
-
-        client::technology_scan(self.connection(), &wifi_tech).await?;
+        client::technology_scan(
+            self.connection(),
+            &OwnedObjectPath::try_from(format!("{}/technology/wifi", CONNMAN_ROOT_PATH))
+                .expect("Input is const so it shouldn't fail"),
+        )
+        .await
+        .map_err(|e| WifiError::OperationFailed(format!("Scan failed: {}", e)))?;
 
         let services = client::services(self.connection()).await?;
-
         let mut out = Vec::new();
 
         for (path, props) in services {
-            // Only wifi services
-            if !path.as_str().contains("/service/wifi_") {
-                continue;
-            }
-
-            let uid = path.as_str().rsplit('/').next().unwrap_or("").to_string();
-
-            match translation::service_state_from_properties(uid, &props) {
-                Ok(state) => out.push(state),
-                Err(e) => {
-                    return Err(WifiError::InvalidServiceState(format!(
-                        "Skipping invalid service {}: {}",
-                        path, e
-                    )));
-                }
+            if path
+                .as_str()
+                .starts_with(&format!("{}/service/wifi_", CONNMAN_ROOT_PATH))
+            {
+                let state =
+                    translation::service_state_from_properties(path.as_str().to_string(), &props)
+                        .map_err(|e| {
+                        WifiError::OperationFailed(format!(
+                            "Failed to parse service {}: {}",
+                            path, e
+                        ))
+                    })?;
+                out.push(state);
             }
         }
 
@@ -130,45 +128,64 @@ impl Wifi for ConnManConnection {
     }
 
     async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()> {
-        let path = Self::service_path(wifi_uid)?;
+        let service_path = OwnedObjectPath::try_from(wifi_uid)
+            .map_err(|_| WifiError::OperationFailed("Invalid service path".into()))?;
 
         if let Some(psk) = passphrase {
             client::service_config(
                 self.connection(),
-                &path,
+                &service_path,
                 "Passphrase",
                 zvariant::Str::from(psk).into(),
             )
             .await
-            .map_err(|e| {
-                WifiError::OperationFailed(format!(
-                    "Failed to set passphrase for '{}': {}",
-                    wifi_uid, e
-                ))
-            })?;
+            .map_err(|e| WifiError::OperationFailed(format!("Failed to set passphrase: {}", e)))?;
         }
 
-        client::service_connect(self.connection(), &path)
+        client::service_connect(self.connection(), &service_path)
             .await
-            .map_err(|e| {
-                WifiError::OperationFailed(format!("Failed to connect to '{}': {}", wifi_uid, e))
-            })?;
+            .map_err(|e| WifiError::OperationFailed(format!("Failed to connect: {}", e)))?;
 
-        Ok(())
+        for _ in 0..20 {
+            let services = client::services(self.connection()).await?;
+            if let Some((path, props)) = services.into_iter().find(|(p, _)| p.as_str() == wifi_uid)
+            {
+                let state =
+                    translation::service_state_from_properties(path.as_str().to_string(), &props)?;
+                match state.state() {
+                    ServiceStateKind::Online => return Ok(()),
+                    ServiceStateKind::Failure => {
+                        return Err(WifiError::OperationFailed("Connection failed".into()));
+                    }
+                    _ => tokio::time::sleep(std::time::Duration::from_millis(500)).await,
+                }
+            }
+        }
+
+        Err(WifiError::OperationFailed("Timed out connecting".into()))
     }
 
     async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()> {
-        let path = Self::service_path(wifi_uid)?;
+        let service_path = OwnedObjectPath::try_from(wifi_uid)
+            .map_err(|_| WifiError::OperationFailed("Invalid service path".into()))?;
 
-        client::service_disconnect(self.connection(), &path)
+        client::service_disconnect(self.connection(), &service_path)
             .await
-            .map_err(|e| {
-                WifiError::OperationFailed(format!(
-                    "Failed to disconnect from '{}': {}",
-                    wifi_uid, e
-                ))
-            })?;
+            .map_err(|e| WifiError::OperationFailed(format!("Failed to disconnect: {}", e)))?;
 
-        Ok(())
+        for _ in 0..20 {
+            let services = client::services(self.connection()).await?;
+            if let Some((path, props)) = services.into_iter().find(|(p, _)| p.as_str() == wifi_uid)
+            {
+                let state =
+                    translation::service_state_from_properties(path.as_str().to_string(), &props)?;
+                match state.state() {
+                    ServiceStateKind::Idle => return Ok(()),
+                    _ => tokio::time::sleep(std::time::Duration::from_millis(500)).await,
+                }
+            }
+        }
+
+        Err(WifiError::OperationFailed("Timed out disconnecting".into()))
     }
 }
