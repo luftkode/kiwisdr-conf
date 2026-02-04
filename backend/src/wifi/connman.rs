@@ -38,13 +38,19 @@ pub mod error {
         DBus(#[from] zbus::Error),
 
         #[error("Missing property: {0}")]
-        MissingProperty(&'static str),
+        MissingProperty(String),
 
-        #[error("Invalid property type: {0}")]
-        InvalidProperty(&'static str),
+        #[error("Invalid property: {0}")]
+        InvalidProperty(String),
 
-        #[error("Invalid IP address in property: {0}")]
-        InvalidAddress(&'static str),
+        #[error("Invalid address: {0}")]
+        InvalidAddress(String),
+
+        #[error("Operation failed: {0}")]
+        OperationFailed(String),
+
+        #[error("Not found: {0}")]
+        NotFound(String),
     }
 
     pub type Result<T> = std::result::Result<T, ConnManError>;

@@ -40,7 +40,7 @@ pub struct Ipv6Connection {
 
 impl ServiceState {
     pub fn new(
-        ssid: Option<String>,   
+        ssid: Option<String>,
         uid: String,
         state: ServiceStateKind,
         strength: Option<u8>,
