@@ -19,6 +19,7 @@ mod consts {
     /// Standard D-Bus properties interface
     pub const DBUS_PROPERTIES_IFACE: &str = "org.freedesktop.DBus.Properties";
 
+    pub const PROP_NAME: &str = "Name";
     pub const PROP_STATE: &str = "State";
     pub const PROP_STRENGTH: &str = "Strength";
     pub const PROP_IPV4: &str = "IPv4";
