@@ -56,14 +56,6 @@ pub mod error {
     pub type Result<T> = std::result::Result<T, ConnManError>;
 }
 
-use crate::wifi::{
-    Wifi,
-    error::{WifiError, WifiResult},
-    model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind},
-};
-use error::{ConnManError, Result};
-use std::net::{Ipv4Addr, Ipv6Addr};
-
 /// Thin connman dbus wrapper
 /// Acts like connmanctl
 mod client {
@@ -1119,6 +1111,19 @@ mod translation {
     }
 }
 
+use crate::wifi::{
+    Wifi,
+    connman::{
+        consts::*,
+        error::{ConnManError, Result},
+    },
+    error::{WifiError, WifiResult},
+    model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind},
+};
+use std::net::{Ipv4Addr, Ipv6Addr};
+use zbus::Connection;
+use zvariant::{ObjectPath, OwnedObjectPath};
+
 pub struct ConnManConnection {
     connection: zbus::Connection,
 }
@@ -1129,18 +1134,99 @@ impl ConnManConnection {
         let connection = zbus::Connection::system().await?;
         Ok(Self { connection })
     }
+
+    fn connection(&self) -> &Connection {
+        &self.connection
+    }
+
+    fn service_path(uid: &str) -> WifiResult<OwnedObjectPath> {
+        let full = format!("{}/service/{}", CONNMAN_ROOT_PATH, uid);
+        Ok(OwnedObjectPath::from(
+            ObjectPath::try_from(full.clone()).map_err(|e| {
+                WifiError::OperationFailed(format!(
+                    "Failed to resolve service path for '{}': '{}', {}",
+                    uid, full, e
+                ))
+            })?,
+        ))
+    }
 }
 
 impl Wifi for ConnManConnection {
     async fn get_available(&self) -> WifiResult<Vec<ServiceState>> {
-        todo!();
+        let wifi_tech: OwnedObjectPath = OwnedObjectPath::from(
+            ObjectPath::try_from(format!("{}/technology/wifi", CONNMAN_ROOT_PATH))
+                .map_err(|_| WifiError::NotFound("Invalid wifi technology path".into()))?,
+        );
+
+        client::technology_scan(self.connection(), &wifi_tech).await?;
+
+        let services = client::services(self.connection()).await?;
+
+        let mut out = Vec::new();
+
+        for (path, props) in services {
+            // Only wifi services
+            if !path.as_str().contains("/service/wifi_") {
+                continue;
+            }
+
+            let uid = path.as_str().rsplit('/').next().unwrap_or("").to_string();
+
+            match translation::service_state_from_properties(uid, &props) {
+                Ok(state) => out.push(state),
+                Err(e) => {
+                    return Err(WifiError::InvalidServiceState(format!(
+                        "Skipping invalid service {}: {}",
+                        path, e
+                    )));
+                }
+            }
+        }
+
+        Ok(out)
     }
 
     async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()> {
-        todo!();
+        let path = Self::service_path(wifi_uid)?;
+
+        if let Some(psk) = passphrase {
+            client::service_config(
+                self.connection(),
+                &path,
+                "Passphrase",
+                psk.to_string().into(),
+            )
+            .await
+            .map_err(|e| {
+                WifiError::OperationFailed(format!(
+                    "Failed to set passphrase for '{}': {}",
+                    wifi_uid, e
+                ))
+            })?;
+        }
+
+        client::service_connect(self.connection(), &path)
+            .await
+            .map_err(|e| {
+                WifiError::OperationFailed(format!("Failed to connect to '{}': {}", wifi_uid, e))
+            })?;
+
+        Ok(())
     }
 
     async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()> {
-        todo!();
+        let path = Self::service_path(wifi_uid)?;
+
+        client::service_disconnect(self.connection(), &path)
+            .await
+            .map_err(|e| {
+                WifiError::OperationFailed(format!(
+                    "Failed to disconnect from '{}': {}",
+                    wifi_uid, e
+                ))
+            })?;
+
+        Ok(())
     }
 }
