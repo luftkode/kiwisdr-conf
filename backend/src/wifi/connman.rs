@@ -16,9 +16,6 @@ mod consts {
     /// ConnMan technology interface (wifi, ethernet, p2p)
     pub const CONNMAN_TECH_IFACE: &str = "net.connman.Technology";
 
-    /// Standard D-Bus properties interface
-    pub const DBUS_PROPERTIES_IFACE: &str = "org.freedesktop.DBus.Properties";
-
     pub const PROP_NAME: &str = "Name";
     pub const PROP_STATE: &str = "State";
     pub const PROP_STRENGTH: &str = "Strength";
@@ -700,13 +697,13 @@ mod translation {
     fn downcast_dict(value: &OwnedValue, name: &'static str) -> Result<DBusDict> {
         let dict = value
             .downcast_ref::<Dict>()
-            .map_err(|e| not_a_dict(name))?;
+            .map_err(|_| not_a_dict(name))?;
 
         let mut out = DBusDict::new();
         for (k, v) in dict {
             let key = k
                 .downcast_ref::<String>()
-                .map_err(|e| invalid_type(name, "key", "String", k))?
+                .map_err(|_| invalid_type(name, "key", "String", k))?
                 .clone();
 
             out.insert(
@@ -1109,12 +1106,11 @@ use crate::wifi::{
     Wifi,
     connman::{
         consts::*,
-        error::{ConnManError, Result},
+        error::Result,
     },
     error::{WifiError, WifiResult},
-    model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind},
+    model::ServiceState,
 };
-use std::net::{Ipv4Addr, Ipv6Addr};
 use zbus::Connection;
 use zvariant::{ObjectPath, OwnedObjectPath};
 
