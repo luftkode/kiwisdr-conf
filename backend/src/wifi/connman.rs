@@ -542,6 +542,50 @@ mod translation {
     /// predictable access and lifetimes.
     type DBusDict = HashMap<String, OwnedValue>;
 
+    fn missing(key: &str) -> ConnManError {
+        ConnManError::MissingProperty(format!(
+            "Missing required property '{}'",
+            key
+        ))
+    }
+
+    fn invalid(key: &str, value: impl Debug) -> ConnManError {
+        ConnManError::InvalidProperty(format!(
+            "Invalid value for property '{}': {:?}",
+            key, value
+        ))
+    }
+
+    fn invalid_type(
+        parent: &str,
+        key: &str,
+        expected: &str,
+        value: impl Debug,
+    ) -> ConnManError {
+        ConnManError::InvalidProperty(format!(
+            "Property '{}.{}' is not a {}, it is: {:?}",
+            parent, key, expected, value
+        ))
+    }
+
+    fn invalid_addr(
+        parent: &str,
+        key: &str,
+        value: impl Debug,
+    ) -> ConnManError {
+        ConnManError::InvalidProperty(format!(
+            "Invalid address {:?} in '{}.{}'",
+            value, parent, key
+        ))
+    }
+
+    fn not_a_dict(key: &str) -> ConnManError {
+        ConnManError::InvalidProperty(format!(
+            "Property '{}' is not a dictionary",
+            key
+        ))
+    }
+
     /// Parse the `"State"` property into a `ServiceStateKind`.
     ///
     /// # Errors
