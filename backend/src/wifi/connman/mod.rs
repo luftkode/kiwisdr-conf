@@ -4,11 +4,13 @@ mod client;
 mod translation;
 
 mod consts {
+    use zvariant::{ObjectPath, OwnedObjectPath};
+
     /// D-Bus well-known name owned by the ConnMan daemon
     pub const CONNMAN_DEST: &str = "net.connman";
 
-    /// Root object path of ConnMan
-    pub const CONNMAN_ROOT_PATH: &str = "/";
+    /// ConnMan manager object path (global object)
+    pub const CONNMAN_MANAGER_PATH: &str = "/";
 
     /// ConnMan manager interface (global operations)
     pub const CONNMAN_MANAGER_IFACE: &str = "net.connman.Manager";
@@ -18,6 +20,15 @@ mod consts {
 
     /// ConnMan technology interface (wifi, ethernet, p2p)
     pub const CONNMAN_TECH_IFACE: &str = "net.connman.Technology";
+
+    /// ConnMan Wi-Fi technology object path
+    pub const CONNMAN_WIFI_TECH_PATH: &str = "/net/connman/technology/wifi";
+
+    pub const CONNMAN_SERVICE_PATH_PREFIX: &str = "/net/connman/service/";
+
+    pub fn service_path(sufix: &str) -> Result<OwnedObjectPath, zvariant::Error> {
+        OwnedObjectPath::try_from(format!("{}{}", CONNMAN_SERVICE_PATH_PREFIX, sufix))
+    }
 
     pub const PROP_NAME: &str = "Name";
     pub const PROP_STATE: &str = "State";
