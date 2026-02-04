@@ -8,7 +8,7 @@ mod consts {
     pub const CONNMAN_DEST: &str = "net.connman";
 
     /// Root object path of ConnMan
-    pub const CONNMAN_ROOT_PATH: &str = "/net/connman";
+    pub const CONNMAN_ROOT_PATH: &str = "/";
 
     /// ConnMan manager interface (global operations)
     pub const CONNMAN_MANAGER_IFACE: &str = "net.connman.Manager";
