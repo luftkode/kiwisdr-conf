@@ -98,15 +98,12 @@ impl ConnManConnection {
     }
 
     fn service_path(uid: &str) -> WifiResult<OwnedObjectPath> {
-        let full = format!("{}/service/{}", CONNMAN_ROOT_PATH, uid);
-        Ok(OwnedObjectPath::from(
-            ObjectPath::try_from(full.clone()).map_err(|e| {
-                WifiError::OperationFailed(format!(
-                    "Failed to resolve service path for '{}': '{}', {}",
-                    uid, full, e
-                ))
-            })?,
-        ))
+        consts::service_path(uid).map_err(|e| {
+            WifiError::OperationFailed(format!(
+                "Failed to resolve service path for '{}': {}",
+                uid, e
+            ))
+        })
     }
 }
 
@@ -114,7 +111,7 @@ impl Wifi for ConnManConnection {
     async fn get_available(&self) -> WifiResult<Vec<ServiceState>> {
         client::technology_scan(
             self.connection(),
-            &OwnedObjectPath::try_from(format!("{}/technology/wifi", CONNMAN_ROOT_PATH))
+            &OwnedObjectPath::try_from(CONNMAN_WIFI_TECH_PATH)
                 .expect("Input is const so it shouldn't fail"),
         )
         .await
@@ -126,7 +123,7 @@ impl Wifi for ConnManConnection {
         for (path, props) in services {
             if path
                 .as_str()
-                .starts_with(&format!("{}/service/wifi_", CONNMAN_ROOT_PATH))
+                .starts_with(&format!("{}/wifi_", CONNMAN_SERVICE_PATH_PREFIX))
             {
                 let state =
                     translation::service_state_from_properties(path.as_str().to_string(), &props)

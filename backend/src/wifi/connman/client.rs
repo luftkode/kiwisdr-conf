@@ -10,7 +10,13 @@ use zvariant::{OwnedObjectPath, OwnedValue, Value};
 type DBusDict = HashMap<String, OwnedValue>;
 
 async fn manager_proxy(conn: &Connection) -> Result<Proxy<'_>> {
-    Ok(Proxy::new(conn, CONNMAN_DEST, CONNMAN_ROOT_PATH, CONNMAN_MANAGER_IFACE).await?)
+    Ok(Proxy::new(
+        conn,
+        CONNMAN_DEST,
+        CONNMAN_MANAGER_PATH,
+        CONNMAN_MANAGER_IFACE,
+    )
+    .await?)
 }
 
 async fn service_proxy<'a>(
