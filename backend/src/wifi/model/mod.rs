@@ -1,3 +1,5 @@
+pub mod linux_ip_address;
+
 use crate::wifi::error::WifiError;
 use serde::Serialize;
 use std::{
