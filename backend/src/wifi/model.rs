@@ -1,23 +1,32 @@
 use crate::wifi::error::WifiError;
 use serde::Serialize;
 use std::{
+    collections::BTreeMap,
     io,
     net::{Ipv4Addr, Ipv6Addr},
+    ops::Deref,
+    fmt::{self, Display},
 };
 
 #[derive(Debug, Clone, Serialize)]
-pub struct ServiceState {
+#[serde(rename_all = "camelCase")]
+pub struct WifiStatusResponse {
+    interfaces: BTreeMap<InterfaceName, NetworkInterface>,
+    wifi_networks: Vec<WifiNetwork>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WifiNetwork {
     ssid: Option<String>,
     uid: String,
-    state: ServiceStateKind,
+    state: WifiStatus,
     strength: Option<u8>,
-    ipv4: Option<Ipv4Connection>,
-    ipv6: Option<Ipv6Connection>,
+    interface: Option<InterfaceName>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ServiceStateKind {
+pub enum WifiStatus {
     Idle,
     Association,
     Configuration,
@@ -25,6 +34,17 @@ pub enum ServiceStateKind {
     Online,
     Disconnect,
     Failure,
+}
+
+/// Linux Network-Interface Name fx "eth0", "wlan0"
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub struct InterfaceName(String);
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NetworkInterface {
+    name: InterfaceName,
+    ipv4: Vec<Ipv4Connection>,
+    ipv6: Vec<Ipv6Connection>,
 }
 
 #[derive(Debug, Clone)]
@@ -41,22 +61,69 @@ pub struct Ipv6Connection {
     gateway: Option<Ipv6Addr>,
 }
 
-impl ServiceState {
+impl InterfaceName {
+    pub fn new(name: impl Into<String>) -> io::Result<Self> {
+        let name = name.into();
+        if name.is_empty() {
+            Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Interface name must not be empty",
+            ))
+        } else {
+            Ok(InterfaceName(name))
+        }
+    }
+}
+
+impl Deref for InterfaceName {
+    type Target = str;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Display for InterfaceName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl TryFrom<String> for InterfaceName {
+    type Error = io::Error;
+
+    fn try_from(s: String) -> io::Result<Self> {
+        Self::new(s)
+    }
+}
+
+impl TryFrom<&str> for InterfaceName {
+    type Error = io::Error;
+
+    fn try_from(s: &str) -> io::Result<Self> {
+        Self::new(s)
+    }
+}
+
+impl NetworkInterface {
+    pub fn new(name: InterfaceName, ipv4: Vec<Ipv4Connection>, ipv6: Vec<Ipv6Connection>) -> Self {
+        Self { name, ipv4, ipv6 }
+    }
+}
+
+impl WifiNetwork {
     pub fn new(
         ssid: Option<String>,
         uid: String,
-        state: ServiceStateKind,
+        state: WifiStatus,
         strength: Option<u8>,
-        ipv4: Option<Ipv4Connection>,
-        ipv6: Option<Ipv6Connection>,
+        interface: Option<InterfaceName>,
     ) -> Self {
         Self {
             ssid,
             uid,
             state,
             strength,
-            ipv4,
-            ipv6,
+            interface,
         }
     }
 
@@ -68,7 +135,7 @@ impl ServiceState {
         &self.uid
     }
 
-    pub fn state(&self) -> ServiceStateKind {
+    pub fn state(&self) -> WifiStatus {
         self.state
     }
 
@@ -76,12 +143,8 @@ impl ServiceState {
         self.strength
     }
 
-    pub fn ipv4(&self) -> Option<&Ipv4Connection> {
-        self.ipv4.as_ref()
-    }
-
-    pub fn ipv6(&self) -> Option<&Ipv6Connection> {
-        self.ipv6.as_ref()
+    pub fn interface(&self) -> Option<&InterfaceName> {
+        self.interface.as_ref()
     }
 }
 
@@ -207,7 +270,7 @@ impl Serialize for Ipv6Connection {
     }
 }
 
-impl TryFrom<&str> for ServiceStateKind {
+impl TryFrom<&str> for WifiStatus {
     type Error = WifiError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -321,20 +384,14 @@ mod tests {
         use super::*;
         #[test]
         fn parses_valid_states() {
-            assert_eq!(
-                ServiceStateKind::try_from("online").unwrap(),
-                ServiceStateKind::Online
-            );
+            assert_eq!(WifiStatus::try_from("online").unwrap(), WifiStatus::Online);
 
-            assert_eq!(
-                ServiceStateKind::try_from("idle").unwrap(),
-                ServiceStateKind::Idle
-            );
+            assert_eq!(WifiStatus::try_from("idle").unwrap(), WifiStatus::Idle);
         }
 
         #[test]
         fn rejects_invalid_state() {
-            let err = ServiceStateKind::try_from("nonsense").unwrap_err();
+            let err = WifiStatus::try_from("nonsense").unwrap_err();
 
             match err {
                 WifiError::InvalidServiceState(s) => assert_eq!(s, "nonsense"),
