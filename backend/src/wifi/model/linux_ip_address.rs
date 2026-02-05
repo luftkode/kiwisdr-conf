@@ -153,15 +153,12 @@ impl IpOutput {
         let output = Command::new("ip").args(["-j", "address"]).output().await?;
 
         if !output.status.success() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "'ip -j address' exited with (exit_code, stdout, stderr) ({}, {}, {})",
-                    output.status,
-                    String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "'ip -j address' exited with (exit_code, stdout, stderr) ({}, {}, {})",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            )));
         }
 
         let value = serde_json::from_slice(&output.stdout).map_err(|e| {
