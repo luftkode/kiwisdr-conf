@@ -41,7 +41,6 @@ pub enum LinkType {
     Other,
 }
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum InterfaceFlag {
@@ -142,7 +141,6 @@ impl From<Vec<Interface>> for IpOutput {
         Self { interfaces }
     }
 }
-
 
 impl IpOutput {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {

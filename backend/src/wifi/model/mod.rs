@@ -49,18 +49,41 @@ pub struct NetworkInterface {
     ipv6: Vec<Ipv6Connection>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Gateway<T> {
+    None,
+    Known(T),
+    Unknown,
+}
+
 #[derive(Debug, Clone)]
 pub struct Ipv4Connection {
     address: Ipv4Addr,
     prefix: u8,
-    gateway: Ipv4Addr,
+    gateway: Gateway<Ipv4Addr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Ipv6Connection {
     address: Ipv6Addr,
     prefix: u8,
-    gateway: Option<Ipv6Addr>,
+    gateway: Gateway<Ipv6Addr>,
+}
+
+impl<T> Serialize for Gateway<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Gateway::None => serializer.serialize_str("none"),
+            Gateway::Unknown => serializer.serialize_str("unknown"),
+            Gateway::Known(value) => value.serialize(serializer),
+        }
+    }
 }
 
 impl InterfaceName {
@@ -151,7 +174,7 @@ impl WifiNetwork {
 }
 
 impl Ipv4Connection {
-    pub fn new(address: Ipv4Addr, prefix: u8, gateway: Ipv4Addr) -> Self {
+    pub fn new(address: Ipv4Addr, prefix: u8, gateway: Gateway<Ipv4Addr>) -> Self {
         Self {
             address,
             prefix,
@@ -162,7 +185,7 @@ impl Ipv4Connection {
     pub fn new_from_netmask(
         address: Ipv4Addr,
         netmask: Ipv4Addr,
-        gateway: Ipv4Addr,
+        gateway: Gateway<Ipv4Addr>,
     ) -> io::Result<Self> {
         let prefix = Self::netmask_to_prefix(netmask)?;
 
@@ -200,7 +223,7 @@ impl Ipv4Connection {
         self.prefix
     }
 
-    pub fn gateway(&self) -> Ipv4Addr {
+    pub fn gateway(&self) -> Gateway<Ipv4Addr> {
         self.gateway
     }
 
@@ -219,7 +242,7 @@ impl Ipv4Connection {
 }
 
 impl Ipv6Connection {
-    pub fn new(address: Ipv6Addr, prefix: u8, gateway: Option<Ipv6Addr>) -> Self {
+    pub fn new(address: Ipv6Addr, prefix: u8, gateway: Gateway<Ipv6Addr>) -> Self {
         Self {
             address,
             prefix,
@@ -235,7 +258,7 @@ impl Ipv6Connection {
         self.prefix
     }
 
-    pub fn gateway(&self) -> Option<Ipv6Addr> {
+    pub fn gateway(&self) -> Gateway<Ipv6Addr> {
         self.gateway
     }
 
@@ -303,7 +326,7 @@ mod tests {
             let ipv4 = Ipv4Connection {
                 address: Ipv4Addr::new(192, 168, 1, 42),
                 prefix: 24,
-                gateway: Ipv4Addr::new(192, 168, 1, 1),
+                gateway: Gateway::Known(Ipv4Addr::new(192, 168, 1, 1)),
             };
 
             assert_eq!(ipv4.cidr(), "192.168.1.42/24");
@@ -314,7 +337,7 @@ mod tests {
             let ipv4 = Ipv4Connection {
                 address: Ipv4Addr::new(10, 0, 0, 5),
                 prefix: 16,
-                gateway: Ipv4Addr::new(10, 0, 0, 1),
+                gateway: Gateway::Unknown,
             };
 
             assert_eq!(ipv4.netmask(), Ipv4Addr::new(255, 255, 0, 0));
@@ -325,7 +348,7 @@ mod tests {
             let ipv4 = Ipv4Connection {
                 address: Ipv4Addr::new(192, 168, 0, 10),
                 prefix: 16,
-                gateway: Ipv4Addr::new(192, 168, 0, 1),
+                gateway: Gateway::Known(Ipv4Addr::new(192, 168, 0, 1)),
             };
 
             let value = serde_json::to_value(&ipv4).unwrap();
@@ -352,7 +375,7 @@ mod tests {
                     0x2001, 0x0db8, 0x0000, 0x0000, 0x0000, 0x0000, 0xdead, 0xbeef,
                 ),
                 prefix: 64,
-                gateway: None,
+                gateway: Gateway::None,
             };
 
             assert_eq!(ipv6.cidr(), "2001:db8::dead:beef/64");
@@ -365,7 +388,7 @@ mod tests {
                     0xfe80, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001,
                 ),
                 prefix: 64,
-                gateway: Some(Ipv6Addr::new(
+                gateway: Gateway::Known(Ipv6Addr::new(
                     0xfe80, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x00ff,
                 )),
             };
