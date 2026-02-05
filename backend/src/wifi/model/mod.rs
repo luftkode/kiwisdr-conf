@@ -4,10 +4,10 @@ use crate::wifi::error::WifiError;
 use serde::Serialize;
 use std::{
     collections::BTreeMap,
+    fmt::{self, Display},
     io,
     net::{Ipv4Addr, Ipv6Addr},
     ops::Deref,
-    fmt::{self, Display},
 };
 
 #[derive(Debug, Clone, Serialize)]

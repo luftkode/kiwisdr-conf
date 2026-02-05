@@ -93,7 +93,8 @@ pub struct IpOutput {
 impl IpOutput {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         let vec: Vec<Interface> = serde_json::from_str(json)?;
-        let map = vec.into_iter()
+        let map = vec
+            .into_iter()
             .map(|iface| (iface.ifname.clone(), iface))
             .collect();
         Ok(IpOutput { interfaces: map })

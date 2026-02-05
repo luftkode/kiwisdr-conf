@@ -23,7 +23,7 @@ pub mod error {
 }
 
 use crate::wifi::error::WifiResult;
-use crate::wifi::model::ServiceState;
+use crate::wifi::model::WifiNetwork;
 
 #[allow(async_fn_in_trait)] // only used with concrete types, never dyn
 /// Interface for managing Wi-Fi connectivity.
@@ -33,18 +33,18 @@ use crate::wifi::model::ServiceState;
 pub trait Wifi {
     /// Returns a list of available Wi-Fi networks.
     ///
-    /// Each network is represented as a [`ServiceState`].
+    /// Each network is represented as a [`WifiNetwork`].
     ///
     /// # Examples
     ///
     /// ```
-    /// # use backend::wifi::{Wifi, model::ServiceState, error::WifiResult};
+    /// # use backend::wifi::{Wifi, model::WifiNetwork, error::WifiResult};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    ///     let networks: Vec<ServiceState> = wifi.get_available().await?;
+    ///     let networks: Vec<WifiNetwork> = wifi.get_available().await?;
     ///     # Ok(())
     /// # }
     /// ```
-    async fn get_available(&self) -> WifiResult<Vec<ServiceState>>;
+    async fn get_available(&self) -> WifiResult<Vec<WifiNetwork>>;
 
     /// Connects to a Wi-Fi network identified by `wifi_uid`.
     ///

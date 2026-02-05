@@ -5,7 +5,7 @@
 
 use crate::wifi::connman::consts::*;
 use crate::wifi::connman::error::{ConnManError, Result};
-use crate::wifi::model::{Ipv4Connection, Ipv6Connection, ServiceState, ServiceStateKind};
+use crate::wifi::model::{InterfaceName, Ipv4Connection, Ipv6Connection, WifiNetwork, WifiStatus};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -51,9 +51,9 @@ fn not_a_dict(key: &str) -> ConnManError {
 /// - `MissingProperty` if the `"State"` key is absent
 /// - `InvalidProperty` if the value is not a string
 /// - `InvalidProperty` if the state string is unknown
-fn parse_state(props: &DBusDict) -> Result<ServiceStateKind> {
+fn parse_state(props: &DBusDict) -> Result<WifiStatus> {
     let raw = get_string(props, PROP_STATE)?;
-    ServiceStateKind::try_from(raw.as_str()).map_err(|_| invalid(PROP_STATE, raw))
+    WifiStatus::try_from(raw.as_str()).map_err(|_| invalid(PROP_STATE, raw))
 }
 
 /// Parse the optional `"Strength"` property.
@@ -74,26 +74,8 @@ fn parse_strength(props: &DBusDict) -> Result<Option<u8>> {
     }
 }
 
-/// Parse the `"IPv4"` configuration block.
-///
-/// All present + valid → `Ok(Some(_))`  
-///
-/// Missing field → `Ok(None)`  
-///
-/// Malformed field → `Err`  
-fn parse_ipv4(props: &DBusDict) -> Result<Option<Ipv4Connection>> {
-    Ok(None)
-}
-
-/// Parse the `"IPv6"` configuration block.
-///
-/// All present + valid → `Ok(Some(_))`  
-///
-/// Missing field → `Ok(None)`  
-///
-/// Malformed field → `Err`  
-fn parse_ipv6(props: &DBusDict) -> Result<Option<Ipv6Connection>> {
-    Ok(None)
+fn parse_interface(props: &DBusDict) -> Result<Option<InterfaceName>> {
+    Ok(None) // TODO
 }
 
 /// Convert a D-Bus `Dict` value into a owned `HashMap<String, OwnedValue>`.
@@ -163,31 +145,13 @@ fn get_ssid(props: &DBusDict) -> Option<String> {
 ///
 /// Returns an error if any required property is missing, if a property
 /// has an unexpected type, or if an address string cannot be parsed.
-///
-/// # Examples
-///
-/// ```ignore
-/// # use std::collections::HashMap;
-/// # use zvariant::{OwnedValue, Str};
-/// # use backend::wifi::model::ServiceStateKind;
-/// # use backend::wifi::connman::translation::service_state_from_properties;
-/// #
-/// let mut props = HashMap::new();
-/// props.insert("State".into(), OwnedValue::from(Str::from("online")));
-///
-/// let state = service_state_from_properties("wifi0".into(), &props).unwrap();
-/// assert_eq!(state.state(), ServiceStateKind::Online);
-/// ```
-pub fn service_state_from_properties(wifi_uid: String, props: &DBusDict) -> Result<ServiceState> {
+pub fn service_state_from_properties(wifi_uid: String, props: &DBusDict) -> Result<WifiNetwork> {
     let ssid = get_ssid(props);
     let state = parse_state(props)?;
     let strength = parse_strength(props)?;
-    let ipv4 = parse_ipv4(props)?;
-    let ipv6 = parse_ipv6(props)?;
+    let interface = parse_interface(props)?;
 
-    Ok(ServiceState::new(
-        ssid, wifi_uid, state, strength, ipv4, ipv6,
-    ))
+    Ok(WifiNetwork::new(ssid, wifi_uid, state, strength, interface))
 }
 
 #[cfg(test)]
@@ -216,7 +180,7 @@ mod tests {
             props.insert(PROP_STATE.into(), ovs("online"));
 
             let state = parse_state(&props).unwrap();
-            assert_eq!(state, ServiceStateKind::Online);
+            assert_eq!(state, WifiStatus::Online);
         }
 
         #[test]
@@ -311,10 +275,9 @@ mod tests {
             let state = service_state_from_properties("wifi0".into(), &props).unwrap();
 
             assert_eq!(state.uid(), "wifi0"); // replace wifi_uid() with uid()
-            assert_eq!(state.state(), ServiceStateKind::Ready);
+            assert_eq!(state.state(), WifiStatus::Ready);
             assert_eq!(state.strength(), Some(55));
-            assert!(state.ipv4().is_none());
-            assert!(state.ipv6().is_none());
+            assert!(state.interface().is_none());
         }
     }
 

@@ -78,7 +78,7 @@ use crate::wifi::{
         error::{ConnManError, Result},
     },
     error::{WifiError, WifiResult},
-    model::{ServiceState, ServiceStateKind},
+    model::{WifiNetwork, WifiStatus},
 };
 use zbus::Connection;
 use zvariant::{ObjectPath, OwnedObjectPath};
@@ -111,7 +111,7 @@ impl ConnManConnection {
 }
 
 impl Wifi for ConnManConnection {
-    async fn get_available(&self) -> WifiResult<Vec<ServiceState>> {
+    async fn get_available(&self) -> WifiResult<Vec<WifiNetwork>> {
         client::technology_scan(
             self.connection(),
             &OwnedObjectPath::try_from(CONNMAN_WIFI_TECH_PATH)
@@ -171,8 +171,8 @@ impl Wifi for ConnManConnection {
                 let state =
                     translation::service_state_from_properties(path.as_str().to_string(), &props)?;
                 match state.state() {
-                    ServiceStateKind::Online => return Ok(()),
-                    ServiceStateKind::Failure => {
+                    WifiStatus::Online => return Ok(()),
+                    WifiStatus::Failure => {
                         return Err(WifiError::OperationFailed("Connection failed".into()));
                     }
                     _ => tokio::time::sleep(std::time::Duration::from_millis(500)).await,
@@ -198,7 +198,7 @@ impl Wifi for ConnManConnection {
                 let state =
                     translation::service_state_from_properties(path.as_str().to_string(), &props)?;
                 match state.state() {
-                    ServiceStateKind::Idle => return Ok(()),
+                    WifiStatus::Idle => return Ok(()),
                     _ => tokio::time::sleep(std::time::Duration::from_millis(500)).await,
                 }
             }
