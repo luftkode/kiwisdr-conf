@@ -33,10 +33,14 @@ pub enum LinkType {
     Loopback,
     Can,
     Dummy,
+    Bridge,
+    Vlan,
+    Tun,
 
     #[serde(other)]
     Other,
 }
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
@@ -122,19 +126,26 @@ pub struct Interface {
     pub addr_info: Vec<AddrInfo>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(from = "Vec<Interface>")]
 pub struct IpOutput {
     pub interfaces: BTreeMap<String, Interface>,
 }
 
-impl IpOutput {
-    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
-        let list: Vec<Interface> = serde_json::from_str(json)?;
+impl From<Vec<Interface>> for IpOutput {
+    fn from(list: Vec<Interface>) -> Self {
         let interfaces = list
             .into_iter()
             .map(|iface| (iface.ifname.clone(), iface))
             .collect();
 
-        Ok(Self { interfaces })
+        Self { interfaces }
+    }
+}
+
+
+impl IpOutput {
+    pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
+        serde_json::from_str(json)
     }
 }
