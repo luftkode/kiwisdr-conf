@@ -21,6 +21,9 @@ pub enum OperState {
     Testing,
     #[serde(rename = "LOWERLAYERDOWN")]
     LowerLayerDown,
+
+    #[serde(other)]
+    Other,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -30,6 +33,9 @@ pub enum LinkType {
     Loopback,
     Can,
     Dummy,
+
+    #[serde(other)]
+    Other,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
@@ -44,6 +50,32 @@ pub enum InterfaceFlag {
     Multicast,
     LowerUp,
     Echo,
+
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AddressScope {
+    Host,
+    Link,
+    Global,
+
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(transparent)]
+pub struct Lifetime(u32);
+
+impl Lifetime {
+    pub const FOREVER: u32 = u32::MAX;
+
+    pub fn is_forever(self) -> bool {
+        self.0 == Self::FOREVER
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -55,13 +87,13 @@ pub struct AddrInfo {
     #[serde(default)]
     pub broadcast: Option<IpAddr>,
 
-    pub scope: String,
+    pub scope: AddressScope,
 
     #[serde(default)]
     pub label: Option<String>,
 
-    pub valid_life_time: u32,
-    pub preferred_life_time: u32,
+    pub valid_life_time: Lifetime,
+    pub preferred_life_time: Lifetime,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -80,7 +112,7 @@ pub struct Interface {
     #[serde(rename = "link_type")]
     pub link_type: LinkType,
 
-    /// MAC address; left as string on purpose
+    /// MAC address (kept as string to avoid kernel-specific formats)
     pub address: String,
 
     #[serde(default)]
