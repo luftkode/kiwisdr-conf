@@ -49,6 +49,9 @@ pub mod error {
         #[error("DBus error: {0}")]
         DBus(#[from] zbus::Error),
 
+        #[error("Io error: {0}")]
+        Io(#[from] std::io::Error),
+
         #[error("Missing property: {0}")]
         MissingProperty(String),
 
@@ -121,9 +124,11 @@ impl Wifi for ConnManConnection {
         let mut out = Vec::new();
 
         for (path, props) in services {
-            if path
-                .as_str()
-                .starts_with(&format!("{}/wifi_", CONNMAN_SERVICE_PATH_PREFIX))
+            if props
+                .get("Type")
+                .and_then(|v| v.downcast_ref::<String>().ok())
+                .map(|t| t == "wifi")
+                .unwrap_or(false)
             {
                 let state =
                     translation::service_state_from_properties(path.as_str().to_string(), &props)

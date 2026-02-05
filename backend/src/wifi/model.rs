@@ -1,6 +1,9 @@
 use crate::wifi::error::WifiError;
 use serde::Serialize;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::{
+    io,
+    net::{Ipv4Addr, Ipv6Addr},
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ServiceState {
@@ -89,6 +92,39 @@ impl Ipv4Connection {
             prefix,
             gateway,
         }
+    }
+
+    pub fn new_from_netmask(
+        address: Ipv4Addr,
+        netmask: Ipv4Addr,
+        gateway: Ipv4Addr,
+    ) -> io::Result<Self> {
+        let prefix = Self::netmask_to_prefix(netmask)?;
+
+        Ok(Self {
+            address,
+            prefix,
+            gateway,
+        })
+    }
+
+    fn netmask_to_prefix(netmask: Ipv4Addr) -> io::Result<u8> {
+        let octets = netmask.octets();
+        let mut prefix = 0;
+        for &octet in &octets {
+            let mut bits = octet;
+            while bits & 0x80 != 0 {
+                prefix += 1;
+                bits <<= 1;
+            }
+            if bits != 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("Could not convert netmask {} to prefix", netmask),
+                ));
+            }
+        }
+        Ok(prefix)
     }
 
     pub fn address(&self) -> Ipv4Addr {
