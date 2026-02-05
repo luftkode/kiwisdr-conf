@@ -2,7 +2,9 @@
 
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
+use std::io;
 use std::net::IpAddr;
+use tokio::process::Command;
 
 #[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -145,5 +147,30 @@ impl From<Vec<Interface>> for IpOutput {
 impl IpOutput {
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
+    }
+
+    pub async fn from_system() -> io::Result<Self> {
+        let output = Command::new("ip").args(["-j", "address"]).output().await?;
+
+        if !output.status.success() {
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!(
+                    "'ip -j address' exited with (exit_code, stdout, stderr) ({}, {}, {})",
+                    output.status,
+                    String::from_utf8_lossy(&output.stdout),
+                    String::from_utf8_lossy(&output.stderr)
+                ),
+            ));
+        }
+
+        let value = serde_json::from_slice(&output.stdout).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("JSON parse error: {}", e),
+            )
+        })?;
+
+        Ok(value)
     }
 }
