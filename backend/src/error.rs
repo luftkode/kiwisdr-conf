@@ -1,3 +1,4 @@
+use crate::wifi::error::WifiError;
 use actix_web::{HttpResponse, ResponseError};
 use serde_json::json;
 use std::io;
@@ -5,6 +6,9 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ApiError {
+    #[error("Wifi error: {0}")]
+    Wifi(#[from] WifiError),
+
     #[error("Job not found")]
     JobNotFound,
 
@@ -34,13 +38,14 @@ impl ResponseError for ApiError {
         });
 
         match self {
-            ApiError::JobNotFound | ApiError::NoAvailableSlots | ApiError::InvalidSettings(_) => {
-                HttpResponse::BadRequest().json(body)
-            }
+            ApiError::Wifi(WifiError::NotFound(_))
+            | ApiError::JobNotFound
+            | ApiError::NoAvailableSlots
+            | ApiError::InvalidSettings(_) => HttpResponse::BadRequest().json(body),
 
             ApiError::JobNotIdle | ApiError::JobNotRunning => HttpResponse::Conflict().json(body),
 
-            ApiError::Process(_) | ApiError::Internal => {
+            ApiError::Wifi(_) | ApiError::Process(_) | ApiError::Internal => {
                 HttpResponse::InternalServerError().json(body)
             }
         }
