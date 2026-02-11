@@ -1,5 +1,8 @@
 //! Parse the output of `ip -j a`
 
+use super::{
+    Gateway, InterfaceMap, InterfaceName, Ipv4Connection, Ipv6Connection, NetworkInterface,
+};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -169,5 +172,36 @@ impl IpOutput {
         })?;
 
         Ok(value)
+    }
+}
+
+impl From<IpOutput> for InterfaceMap {
+    fn from(ip: IpOutput) -> Self {
+        let mut out = BTreeMap::new();
+
+        for (name, iface) in ip.interfaces {
+            let ifname = match InterfaceName::try_from(name) {
+                Ok(n) => n,
+                Err(_) => continue,
+            };
+
+            let mut ipv4 = Vec::new();
+            let mut ipv6 = Vec::new();
+
+            for addr in iface.addr_info {
+                match addr.local {
+                    std::net::IpAddr::V4(v4) => {
+                        ipv4.push(Ipv4Connection::new(v4, addr.prefixlen, Gateway::Unknown));
+                    }
+                    std::net::IpAddr::V6(v6) => {
+                        ipv6.push(Ipv6Connection::new(v6, addr.prefixlen, Gateway::Unknown));
+                    }
+                }
+            }
+
+            out.insert(ifname.clone(), NetworkInterface::new(ifname, ipv4, ipv6));
+        }
+
+        InterfaceMap(out)
     }
 }
