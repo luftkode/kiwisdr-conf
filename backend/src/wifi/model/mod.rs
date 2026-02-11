@@ -13,9 +13,13 @@ use std::{
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WifiStatusResponse {
-    interfaces: BTreeMap<InterfaceName, NetworkInterface>,
+    interfaces: InterfaceMap,
     wifi_networks: Vec<WifiNetwork>,
 }
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(transparent)]
+pub struct InterfaceMap(pub BTreeMap<InterfaceName, NetworkInterface>);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WifiNetwork {
