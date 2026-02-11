@@ -9,14 +9,14 @@ use std::io;
 use std::net::IpAddr;
 use tokio::process::Command;
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AddressFamily {
     Inet,
     Inet6,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum OperState {
     Up,
@@ -31,7 +31,7 @@ pub enum OperState {
     Other,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LinkType {
     Ether,
@@ -46,7 +46,7 @@ pub enum LinkType {
     Other,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum InterfaceFlag {
     Up,
@@ -63,7 +63,7 @@ pub enum InterfaceFlag {
     Other,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AddressScope {
     Host,
