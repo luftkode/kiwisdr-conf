@@ -1,4 +1,4 @@
-npm run release
+npm run build
 
 cd ..
 
