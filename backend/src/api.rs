@@ -4,7 +4,12 @@ use serde_json::json;
 use crate::error::ApiError;
 use crate::job::{Job, JobInfo, RecorderSettings, create_job};
 use crate::state::AppState;
-use crate::wifi::{Wifi, connman::ConnManConnection};
+use crate::wifi::model::WifiStatusResponse;
+use crate::wifi::{
+    Wifi,
+    connman::ConnManConnection,
+    model::{InterfaceMap, linux_ip_address::IpOutput},
+};
 
 pub fn init_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(status)
@@ -131,9 +136,14 @@ async fn remove_recorder(
 #[get("/api/wifi")]
 async fn wifi_status() -> Result<impl Responder, ApiError> {
     let conn = ConnManConnection::new().await?;
-    let wifis = conn.get_available().await?;
+    let wifi_networks = conn.get_available().await?;
 
-    Ok(HttpResponse::Ok().json(wifis))
+    let interfaces = IpOutput::from_system().await?;
+    let interface_map = InterfaceMap::from(interfaces);
+
+    let response = WifiStatusResponse::new(interface_map, wifi_networks);
+
+    Ok(HttpResponse::Ok().json(response))
 }
 
 #[post("/api/wifi/connect")]

@@ -74,6 +74,15 @@ pub struct Ipv6Connection {
     gateway: Gateway<Ipv6Addr>,
 }
 
+impl WifiStatusResponse {
+    pub fn new(interfaces: InterfaceMap, wifi_networks: Vec<WifiNetwork>) -> Self {
+        Self {
+            interfaces,
+            wifi_networks,
+        }
+    }
+}
+
 impl<T> Serialize for Gateway<T>
 where
     T: Serialize,
