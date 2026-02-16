@@ -1,7 +1,7 @@
 pub mod linux_ip_address;
 
 use crate::wifi::error::WifiError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
     fmt::{self, Display},
@@ -15,6 +15,12 @@ use std::{
 pub struct WifiStatusResponse {
     interfaces: InterfaceMap,
     wifi_networks: Vec<WifiNetwork>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct WifiConnectionPayload {
+    uid: String,
+    password: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -72,6 +78,16 @@ pub struct Ipv6Connection {
     address: Ipv6Addr,
     prefix: u8,
     gateway: Gateway<Ipv6Addr>,
+}
+
+impl WifiConnectionPayload {
+    pub fn uid(&self) -> &str {
+        &self.uid
+    }
+
+    pub fn password(&self) -> Option<&str> {
+        self.password.as_deref()
+    }
 }
 
 impl WifiStatusResponse {

@@ -4,7 +4,7 @@ use serde_json::json;
 use crate::error::ApiError;
 use crate::job::{Job, JobInfo, RecorderSettings, create_job};
 use crate::state::AppState;
-use crate::wifi::model::WifiStatusResponse;
+use crate::wifi::model::{WifiConnectionPayload, WifiStatusResponse};
 use crate::wifi::{
     Wifi,
     connman::ConnManConnection,
@@ -147,11 +147,11 @@ async fn wifi_status() -> Result<impl Responder, ApiError> {
 }
 
 #[post("/api/wifi/connect")]
-async fn wifi_conn() -> Result<impl Responder, ApiError> {
+async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
     Ok(HttpResponse::Ok().body("Online"))
 }
 
 #[post("/api/wifi/disconnect")]
-async fn wifi_disconn() -> Result<impl Responder, ApiError> {
+async fn wifi_disconn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
     Ok(HttpResponse::Ok().body("Online"))
 }
