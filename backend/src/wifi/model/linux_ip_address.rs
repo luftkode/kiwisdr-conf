@@ -115,7 +115,9 @@ pub struct Interface {
     pub qdisc: String,
     pub operstate: OperState,
     pub group: String,
-    pub txqlen: u32,
+
+    #[serde(default)]
+    pub txqlen: Option<u32>,
 
     #[serde(rename = "link_type")]
     pub link_type: LinkType,
