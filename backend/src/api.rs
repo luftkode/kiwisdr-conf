@@ -148,10 +148,18 @@ async fn wifi_status() -> Result<impl Responder, ApiError> {
 
 #[post("/api/wifi/connect")]
 async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
-    Ok(HttpResponse::Ok().body("Online"))
+    let conn = ConnManConnection::new().await?;
+
+    conn.connect(payload.uid(), payload.password()).await?;
+
+    Ok(HttpResponse::Ok().body("Ok"))
 }
 
 #[post("/api/wifi/disconnect")]
 async fn wifi_disconn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
-    Ok(HttpResponse::Ok().body("Online"))
+    let conn = ConnManConnection::new().await?;
+
+    conn.disconnect(payload.uid()).await?;
+
+    Ok(HttpResponse::Ok().body("Ok"))
 }
