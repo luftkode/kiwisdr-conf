@@ -156,7 +156,9 @@ async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Res
 }
 
 #[post("/api/wifi/disconnect")]
-async fn wifi_disconn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
+async fn wifi_disconn(
+    payload: web::Json<WifiConnectionPayload>,
+) -> Result<impl Responder, ApiError> {
     let conn = ConnManConnection::new().await?;
 
     conn.disconnect(payload.uid()).await?;
