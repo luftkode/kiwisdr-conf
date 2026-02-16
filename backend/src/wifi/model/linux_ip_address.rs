@@ -122,8 +122,8 @@ pub struct Interface {
     #[serde(rename = "link_type")]
     pub link_type: LinkType,
 
-    /// MAC address (kept as string to avoid kernel-specific formats)
-    pub address: String,
+    /// MAC address (kept as `String` to avoid kernel-specific formats and as `Option` to not crash (it gets filtered later))
+    pub address: Option<String>,
 
     #[serde(default)]
     pub broadcast: Option<String>,
@@ -186,6 +186,16 @@ impl From<IpOutput> for InterfaceMap {
                 Ok(n) => n,
                 Err(_) => continue,
             };
+
+            // Only keep Ethernet/WiFi-class devices
+            if iface.link_type != LinkType::Ether {
+                continue;
+            }
+
+            // Must have a MAC address
+            if iface.address.is_none() {
+                continue;
+            }
 
             let mut ipv4 = Vec::new();
             let mut ipv6 = Vec::new();
