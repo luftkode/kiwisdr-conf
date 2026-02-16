@@ -197,6 +197,20 @@ impl From<IpOutput> for InterfaceMap {
                 continue;
             }
 
+            // Must not be kernel-virtual by naming convention
+            let name = iface.ifname.as_str();
+
+            if name.starts_with("docker")
+                || name.starts_with("br-")
+                || name.starts_with("veth")
+                || name.starts_with("dummy")
+                || name.starts_with("tun")
+                || name.starts_with("tap")
+                || name.starts_with("lo")
+            {
+                continue;
+            }
+
             let mut ipv4 = Vec::new();
             let mut ipv6 = Vec::new();
 
