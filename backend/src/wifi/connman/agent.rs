@@ -127,13 +127,15 @@ impl ConnManAgent {
     async fn request_input(
         &self,
         service: String,
-        _fields: HashMap<String, OwnedValue>,
+        fields: HashMap<String, OwnedValue>,
     ) -> HashMap<String, OwnedValue> {
         let mut secrets = self.secrets.lock().await;
-
         let mut reply = HashMap::new();
 
-        if let Some(passphrase) = secrets.take(&service) {
+        // Only respond to fields ConnMan explicitly requests
+        if fields.contains_key("Passphrase")
+            && let Some(passphrase) = secrets.take(&service)
+        {
             reply.insert(
                 "Passphrase".to_string(),
                 zvariant::Str::from(passphrase).into(),
