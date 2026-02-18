@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-mod agent;
+pub mod agent;
 mod client;
 mod translation;
 

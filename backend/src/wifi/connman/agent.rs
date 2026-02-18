@@ -68,6 +68,7 @@ impl WifiSecrets {
 ///
 /// This agent is responsible for providing credentials
 /// when ConnMan requests them during connection attempts.
+#[derive(Default)]
 pub struct ConnManAgent {
     secrets: Mutex<WifiSecrets>,
 }
