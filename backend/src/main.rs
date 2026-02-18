@@ -13,7 +13,8 @@ use backend::state::*;
 async fn main() -> Result<()> {
     let port: u16 = 5004;
 
-    let state: AppState = AppState::default();
+    println!("Connecting to system DBus");
+    let state: AppState = AppState::new().await?;
 
     println!("Starting Job Scheduler");
     spawn(job_scheduler(state.clone()));

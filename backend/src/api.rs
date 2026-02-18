@@ -134,8 +134,8 @@ async fn remove_recorder(
 }
 
 #[get("/api/wifi")]
-async fn wifi_status() -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::new().await?;
+async fn wifi_status(state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
+    let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
     let wifi_networks = conn.get_available().await?;
 
     let interfaces = IpOutput::from_system().await?;
@@ -147,9 +147,11 @@ async fn wifi_status() -> Result<impl Responder, ApiError> {
 }
 
 #[post("/api/wifi/connect")]
-async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::new().await?;
-
+async fn wifi_conn(
+    payload: web::Json<WifiConnectionPayload>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
+    let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
     conn.connect(payload.uid(), payload.password()).await?;
 
     Ok(HttpResponse::Ok().body("Ok"))
@@ -158,9 +160,9 @@ async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Res
 #[post("/api/wifi/disconnect")]
 async fn wifi_disconn(
     payload: web::Json<WifiConnectionPayload>,
+    state: web::Data<AppState>,
 ) -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::new().await?;
-
+    let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
     conn.disconnect(payload.uid()).await?;
 
     Ok(HttpResponse::Ok().body("Ok"))

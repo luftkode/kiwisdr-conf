@@ -81,7 +81,6 @@ use crate::wifi::{
     error::{WifiError, WifiResult},
     model::{WifiNetwork, WifiStatus},
 };
-use zbus::Connection;
 use zvariant::{ObjectPath, OwnedObjectPath};
 
 pub struct ConnManConnection {
@@ -90,14 +89,18 @@ pub struct ConnManConnection {
 
 impl ConnManConnection {
     /// Opens a connection to the system D-Bus.
-    pub async fn new() -> WifiResult<Self> {
+    pub async fn with_new_connection() -> WifiResult<Self> {
         let connection = zbus::Connection::system()
             .await
             .map_err(ConnManError::from)?;
         Ok(Self { connection })
     }
 
-    fn connection(&self) -> &Connection {
+    pub fn with_connection(connection: zbus::Connection) -> Self {
+        Self { connection }
+    }
+
+    fn connection(&self) -> &zbus::Connection {
         &self.connection
     }
 
