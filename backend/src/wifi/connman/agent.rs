@@ -164,3 +164,38 @@ impl ConnManAgent {
         // No-op
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn secrets_insert_and_take() {
+        let mut secrets = WifiSecrets::new();
+
+        let service = "/net/connman/service/test";
+        let pass = "secret";
+
+        secrets.insert(service.to_string(), pass.to_string());
+
+        assert_eq!(secrets.take(service), Some(pass.to_string()));
+        assert_eq!(secrets.take(service), None); // one-shot
+    }
+
+    #[test]
+    fn secrets_isolated_per_service() {
+        let mut secrets = WifiSecrets::new();
+
+        secrets.insert("s1".into(), "p1".into());
+        secrets.insert("s2".into(), "p2".into());
+
+        assert_eq!(secrets.take("s1"), Some("p1".into()));
+        assert_eq!(secrets.take("s2"), Some("p2".into()));
+    }
+
+    #[test]
+    fn secrets_missing_returns_none() {
+        let mut secrets = WifiSecrets::new();
+        assert_eq!(secrets.take("missing"), None);
+    }
+}
