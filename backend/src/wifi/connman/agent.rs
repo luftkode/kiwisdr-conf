@@ -26,12 +26,7 @@ use zvariant::OwnedValue;
 
 use crate::wifi::connman::error::Result;
 
-/// In-memory store for Wi-Fi secrets.
-///
-/// Maps:
-/// ```text
-/// service_path -> passphrase
-/// ```
+/// One-shot in-memory credential store.
 ///
 /// Secrets are **consumed once** and then deleted.
 /// This prevents accidental reuse, leakage, and stale credentials.
@@ -48,7 +43,9 @@ impl WifiSecrets {
         }
     }
 
-    /// Insert a Wi-Fi passphrase for a service.
+    /// Inserts a passphrase for a service path.
+    ///
+    /// If a secret already exists for this service, it is overwritten.
     ///
     /// # Arguments
     /// * `service` - Full ConnMan service object path
@@ -57,11 +54,17 @@ impl WifiSecrets {
         self.map.insert(service, passphrase);
     }
 
-    /// Take (consume) a passphrase for a service.
+    /// Consumes and returns the secret for `service`.
     ///
-    /// This removes the secret from memory after retrieval.
+    /// This operation is **destructive**.
+    /// Subsequent calls return `None`.
     pub fn take(&mut self, service: &str) -> Option<String> {
         self.map.remove(service)
+    }
+
+    /// Returns `true` if a secret exists for `service`.
+    pub fn contains(&self, service: &str) -> bool {
+        self.map.contains_key(service)
     }
 }
 
@@ -77,31 +80,20 @@ pub struct ConnManAgent {
 }
 
 impl ConnManAgent {
-    /// Create a new agent.
+    // Creates a new agent backed by a shared secret store.
     pub fn new(wifi_secrets: Arc<Mutex<WifiSecrets>>) -> Self {
         Self {
             secrets: wifi_secrets,
         }
     }
 
-    /// Insert a Wi-Fi secret for a service.
+    /// Registers the agent on the system bus.
     ///
-    /// This is called by your API layer before `Service.Connect`.
-    pub async fn insert_secret(&self, service: &str, passphrase: &str) {
-        let mut secrets = self.secrets.lock().await;
-        secrets.insert(service.to_string(), passphrase.to_string());
-    }
-
-    /// Register the agent on the system bus.
-    ///
-    /// This must be called once during startup.
-    ///
-    /// # Arguments
-    /// * `conn` - System D-Bus connection
+    /// # Errors
+    /// Returns an error if registration fails or ConnMan is unreachable.
     pub async fn register(conn: &Connection) -> Result<()> {
         let proxy = zbus::Proxy::new(conn, "net.connman", "/", "net.connman.Manager").await?;
 
-        // RegisterAgent("/net/connman/agent")
         proxy
             .call::<&str, (&str,), ()>("RegisterAgent", &("/net/connman/agent",))
             .await?;
@@ -112,22 +104,11 @@ impl ConnManAgent {
 
 #[interface(name = "net.connman.Agent")]
 impl ConnManAgent {
-    /// RequestInput callback.
+    /// Supplies requested credentials.
     ///
-    /// Called by ConnMan when credentials are required.
+    /// ConnMan calls this method when authentication data is required.
     ///
-    /// # Arguments
-    /// * `service` - Service object path
-    /// * `fields` - Requested input fields
-    ///
-    /// # Returns
-    /// Dictionary of provided fields (`a{sv}`)
-    ///
-    /// Example request:
-    /// ```text
-    /// Fields:
-    ///   Passphrase (type: string)
-    /// ```
+    /// Only requested fields are returned.
     async fn request_input(
         &self,
         service: String,
@@ -149,26 +130,16 @@ impl ConnManAgent {
         reply
     }
 
-    /// ReportError callback.
-    ///
-    /// Called by ConnMan when a connection error occurs.
+    /// Reports connection errors.
     async fn report_error(&self, service: String, error: String) {
-        eprintln!("ConnMan error on {}: {}", service, error);
+        eprintln!("ConnMan error [{}]: {}", service, error);
     }
 
-    /// Cancel callback.
-    ///
-    /// Called if a request is cancelled.
-    async fn cancel(&self) {
-        // No-op
-    }
+    /// Cancels a pending request.
+    async fn cancel(&self) {}
 
-    /// Release callback.
-    ///
-    /// Called when ConnMan unregisters the agent.
-    async fn release(&self) {
-        // No-op
-    }
+    /// Called when agent is released.
+    async fn release(&self) {}
 }
 
 #[cfg(test)]
@@ -176,32 +147,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn secrets_insert_and_take() {
-        let mut secrets = WifiSecrets::new();
+    fn insert_and_take_is_one_shot() {
+        let mut s = WifiSecrets::new();
+        s.insert("svc".into(), "pw".into());
 
-        let service = "/net/connman/service/test";
-        let pass = "secret";
-
-        secrets.insert(service.to_string(), pass.to_string());
-
-        assert_eq!(secrets.take(service), Some(pass.to_string()));
-        assert_eq!(secrets.take(service), None); // one-shot
+        assert_eq!(s.take("svc"), Some("pw".into()));
+        assert_eq!(s.take("svc"), None);
     }
 
     #[test]
-    fn secrets_isolated_per_service() {
-        let mut secrets = WifiSecrets::new();
+    fn overwrite_secret() {
+        let mut s = WifiSecrets::new();
+        s.insert("svc".into(), "pw1".into());
+        s.insert("svc".into(), "pw2".into());
 
-        secrets.insert("s1".into(), "p1".into());
-        secrets.insert("s2".into(), "p2".into());
-
-        assert_eq!(secrets.take("s1"), Some("p1".into()));
-        assert_eq!(secrets.take("s2"), Some("p2".into()));
+        assert_eq!(s.take("svc"), Some("pw2".into()));
     }
 
     #[test]
-    fn secrets_missing_returns_none() {
-        let mut secrets = WifiSecrets::new();
-        assert_eq!(secrets.take("missing"), None);
+    fn isolation_between_services() {
+        let mut s = WifiSecrets::new();
+        s.insert("a".into(), "1".into());
+        s.insert("b".into(), "2".into());
+
+        assert_eq!(s.take("a"), Some("1".into()));
+        assert_eq!(s.take("b"), Some("2".into()));
+    }
+
+    #[test]
+    fn contains_works() {
+        let mut s = WifiSecrets::new();
+        s.insert("svc".into(), "pw".into());
+
+        assert!(s.contains("svc"));
+        assert!(!s.contains("missing"));
     }
 }
