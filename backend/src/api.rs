@@ -4,6 +4,7 @@ use serde_json::json;
 use crate::error::ApiError;
 use crate::job::{Job, JobInfo, RecorderSettings, create_job};
 use crate::state::AppState;
+use crate::wifi::WifiAuth;
 use crate::wifi::model::{WifiConnectionPayload, WifiStatusResponse};
 use crate::wifi::{
     Wifi,
@@ -135,7 +136,7 @@ async fn remove_recorder(
 
 #[get("/api/wifi")]
 async fn wifi_status(state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
+    let conn = ConnManConnection::new((*state.dbus_conn).clone(), state.wifi_secrets.clone());
     let wifi_networks = conn.get_available().await?;
 
     let interfaces = IpOutput::from_system().await?;
@@ -151,12 +152,12 @@ async fn wifi_conn(
     payload: web::Json<WifiConnectionPayload>,
     state: web::Data<AppState>,
 ) -> Result<impl Responder, ApiError> {
-    if let Some(password) = payload.password() {
-        let mut wifi_secrets = state.wifi_secrets.lock().await;
-        wifi_secrets.insert(payload.uid().to_string(), password.to_string());
-    }
-    let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
-    conn.connect(payload.uid(), payload.password()).await?;
+    let conn = ConnManConnection::new((*state.dbus_conn).clone(), state.wifi_secrets.clone());
+    conn.connect(
+        payload.uid(),
+        WifiAuth::ConnmanAgentAuth(payload.password().map(|s| s.into())),
+    )
+    .await?;
 
     Ok(HttpResponse::Ok().body("Ok"))
 }
@@ -166,7 +167,7 @@ async fn wifi_disconn(
     payload: web::Json<WifiConnectionPayload>,
     state: web::Data<AppState>,
 ) -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
+    let conn = ConnManConnection::new((*state.dbus_conn).clone(), state.wifi_secrets.clone());
     conn.disconnect(payload.uid()).await?;
 
     Ok(HttpResponse::Ok().body("Ok"))

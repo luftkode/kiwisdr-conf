@@ -72,32 +72,32 @@ pub mod error {
     pub type Result<T> = std::result::Result<T, ConnManError>;
 }
 
+use std::sync::Arc;
+
 use crate::wifi::{
-    Wifi,
+    Wifi, WifiAuth,
     connman::{
+        agent::WifiSecrets,
         consts::*,
         error::{ConnManError, Result},
     },
     error::{WifiError, WifiResult},
     model::{WifiNetwork, WifiStatus},
 };
+use tokio::sync::Mutex;
 use zvariant::{ObjectPath, OwnedObjectPath};
 
 pub struct ConnManConnection {
     connection: zbus::Connection,
+    shared_wifi_secret: Arc<Mutex<WifiSecrets>>,
 }
 
 impl ConnManConnection {
-    /// Opens a connection to the system D-Bus.
-    pub async fn with_new_connection() -> WifiResult<Self> {
-        let connection = zbus::Connection::system()
-            .await
-            .map_err(ConnManError::from)?;
-        Ok(Self { connection })
-    }
-
-    pub fn with_connection(connection: zbus::Connection) -> Self {
-        Self { connection }
+    pub fn new(connection: zbus::Connection, shared_wifi_secret: Arc<Mutex<WifiSecrets>>) -> Self {
+        Self {
+            connection,
+            shared_wifi_secret,
+        }
     }
 
     fn connection(&self) -> &zbus::Connection {
@@ -149,19 +149,19 @@ impl Wifi for ConnManConnection {
         Ok(out)
     }
 
-    async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()> {
+    async fn connect(&self, wifi_uid: &str, auth: WifiAuth) -> WifiResult<()> {
         let service_path = OwnedObjectPath::try_from(wifi_uid)
             .map_err(|_| WifiError::OperationFailed("Invalid service path".into()))?;
 
-        if let Some(psk) = passphrase {
-            client::service_config(
-                self.connection(),
-                &service_path,
-                "Passphrase",
-                zvariant::Str::from(psk).into(),
-            )
-            .await
-            .map_err(|e| WifiError::OperationFailed(format!("Failed to set passphrase: {}", e)))?;
+        if let WifiAuth::ConnmanAgentAuth(Some(password)) = auth {
+            let mut wifi_secret = self.shared_wifi_secret.lock().await;
+            wifi_secret.insert(wifi_uid.into(), password);
+        } else if let WifiAuth::ConnmanAgentAuth(None) = auth {
+            // pass
+        } else {
+            return Err(WifiError::InvalidAuthType(
+                "Connman only suports WifiAuth::ConnmanAgentAuth".into(),
+            ));
         }
 
         client::service_connect(self.connection(), &service_path)
