@@ -52,8 +52,13 @@ impl AppState {
         })?);
         let wifi_secrets = Arc::new(Mutex::new(WifiSecrets::new()));
 
-        // Create the ConnMan agent (concrete type)
-        let wifi_agent = Arc::new(ConnManAgent::new(wifi_secrets.clone()));
+        // --- Agent bootstrap ---
+        let agent = ConnManAgent::new(wifi_secrets.clone());
+        agent
+            .register(&dbus_conn)
+            .await
+            .map_err(|e| io::Error::other(format!("ConnMan agent registration failed: {}", e)))?;
+        // -----------------------
 
         Ok(Self {
             jobs,

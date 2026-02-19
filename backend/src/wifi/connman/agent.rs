@@ -91,7 +91,11 @@ impl ConnManAgent {
     ///
     /// # Errors
     /// Returns an error if registration fails or ConnMan is unreachable.
-    pub async fn register(conn: &Connection) -> Result<()> {
+    pub async fn register(self, conn: &Connection) -> Result<()> {
+        // 1) Export the object
+        conn.object_server().at("/net/connman/agent", self).await?;
+
+        // 2) Register it with ConnMan
         let proxy = zbus::Proxy::new(conn, "net.connman", "/", "net.connman.Manager").await?;
 
         proxy
