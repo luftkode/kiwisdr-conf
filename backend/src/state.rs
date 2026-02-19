@@ -1,5 +1,5 @@
 use crate::job::Job;
-use crate::wifi::connman::agent::ConnManAgent;
+use crate::wifi::connman::agent::{ConnManAgent, WifiSecrets};
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
@@ -20,16 +20,11 @@ pub struct AppState {
     /// Active recorder jobs
     pub jobs: SharedJobMap,
 
-    /// Shared ConnMan agent for serving Wi-Fi secrets
-    ///
-    /// This agent:
-    /// - Receives credential requests from ConnMan
-    /// - Serves secrets via RequestInput
-    /// - Must be a singleton to ensure only one agent handles credential requests
-    pub wifi_agent: Arc<ConnManAgent>,
-
     /// Single connection to system dbus
     pub dbus_conn: Arc<zbus::Connection>,
+
+    /// Shared Wi-Fi secrets store
+    pub wifi_secrets: Arc<Mutex<WifiSecrets>>,
 }
 
 impl AppState {
@@ -48,20 +43,22 @@ impl AppState {
     /// - Registering the agent object path fails.
     /// - Registering the agent with ConnMan fails.
     pub async fn new() -> io::Result<Self> {
-        let dbus_connection = zbus::Connection::system().await.map_err(|e| {
+        let jobs = SharedJobMap::default();
+        let dbus_conn = Arc::new(zbus::Connection::system().await.map_err(|e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,
                 format!("Failed to connect to system DBus: {}", e),
             )
-        })?;
+        })?);
+        let wifi_secrets = Arc::new(Mutex::new(WifiSecrets::new()));
 
         // Create the ConnMan agent (concrete type)
-        let wifi_agent = Arc::new(ConnManAgent::new());
+        let wifi_agent = Arc::new(ConnManAgent::new(wifi_secrets.clone()));
 
         Ok(Self {
-            jobs: SharedJobMap::default(),
-            wifi_agent,
-            dbus_conn: Arc::new(dbus_connection),
+            jobs,
+            dbus_conn,
+            wifi_secrets,
         })
     }
 }

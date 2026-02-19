@@ -151,6 +151,10 @@ async fn wifi_conn(
     payload: web::Json<WifiConnectionPayload>,
     state: web::Data<AppState>,
 ) -> Result<impl Responder, ApiError> {
+    if let Some(password) = payload.password() {
+        let mut wifi_secrets = state.wifi_secrets.lock().await;
+        wifi_secrets.insert(payload.uid().to_string(), password.to_string());
+    }
     let conn = ConnManConnection::with_connection((*state.dbus_conn).clone());
     conn.connect(payload.uid(), payload.password()).await?;
 

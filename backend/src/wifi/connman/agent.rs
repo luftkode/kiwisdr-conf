@@ -16,7 +16,10 @@
 //! This mirrors ConnMan's design:
 //! > "Credentials are requested, not pushed."
 
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 use zbus::{Connection, interface};
 use zvariant::OwnedValue;
@@ -70,14 +73,14 @@ impl WifiSecrets {
 /// when ConnMan requests them during connection attempts.
 #[derive(Default)]
 pub struct ConnManAgent {
-    secrets: Mutex<WifiSecrets>,
+    secrets: Arc<Mutex<WifiSecrets>>,
 }
 
 impl ConnManAgent {
     /// Create a new agent.
-    pub fn new() -> Self {
+    pub fn new(wifi_secrets: Arc<Mutex<WifiSecrets>>) -> Self {
         Self {
-            secrets: Mutex::new(WifiSecrets::new()),
+            secrets: wifi_secrets,
         }
     }
 
