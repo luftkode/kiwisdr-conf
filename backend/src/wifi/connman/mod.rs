@@ -153,15 +153,15 @@ impl Wifi for ConnManConnection {
         let service_path = OwnedObjectPath::try_from(wifi_uid)
             .map_err(|_| WifiError::OperationFailed("Invalid service path".into()))?;
 
-        if let WifiAuth::ConnmanAgentAuth(Some(password)) = auth {
-            let mut wifi_secret = self.shared_wifi_secret.lock().await;
-            wifi_secret.insert(wifi_uid.into(), password);
-        } else if let WifiAuth::ConnmanAgentAuth(None) = auth {
-            // pass
-        } else {
-            return Err(WifiError::InvalidAuthType(
-                "Connman only suports WifiAuth::ConnmanAgentAuth".into(),
-            ));
+        match auth {
+            WifiAuth::ConnmanAgentAuth(Some(password)) => {
+                let mut wifi_secret = self.shared_wifi_secret.lock().await;
+                wifi_secret.insert(wifi_uid.into(), password);
+            }
+
+            WifiAuth::ConnmanAgentAuth(None) => {
+                // open network
+            }
         }
 
         client::service_connect(self.connection(), &service_path)
