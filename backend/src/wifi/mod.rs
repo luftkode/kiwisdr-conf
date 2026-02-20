@@ -1,4 +1,3 @@
-pub mod connman;
 pub mod model;
 
 pub mod error {
@@ -6,9 +5,6 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum WifiError {
-        #[error("ConnMan error: {0}")]
-        ConnMan(#[from] crate::wifi::connman::error::ConnManError),
-
         #[error("Wi-Fi operation failed: {0}")]
         OperationFailed(String),
 

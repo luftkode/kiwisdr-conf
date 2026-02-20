@@ -7,7 +7,6 @@ use crate::state::AppState;
 use crate::wifi::model::{WifiConnectionPayload, WifiStatusResponse};
 use crate::wifi::{
     Wifi,
-    connman::ConnManConnection,
     model::{InterfaceMap, linux_ip_address::IpOutput},
 };
 
@@ -135,7 +134,7 @@ async fn remove_recorder(
 
 #[get("/api/wifi")]
 async fn wifi_status() -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::new().await?;
+    let conn = todo!();
     let wifi_networks = conn.get_available().await?;
 
     let interfaces = IpOutput::from_system().await?;
@@ -148,7 +147,7 @@ async fn wifi_status() -> Result<impl Responder, ApiError> {
 
 #[post("/api/wifi/connect")]
 async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::new().await?;
+    let conn = todo!();
 
     conn.connect(payload.uid(), payload.password()).await?;
 
@@ -159,8 +158,7 @@ async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Res
 async fn wifi_disconn(
     payload: web::Json<WifiConnectionPayload>,
 ) -> Result<impl Responder, ApiError> {
-    let conn = ConnManConnection::new().await?;
-
+    let conn = todo!();
     conn.disconnect(payload.uid()).await?;
 
     Ok(HttpResponse::Ok().body("Ok"))
