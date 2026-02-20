@@ -1,10 +1,14 @@
 pub mod model;
+pub mod wpa_supplicant;
 
 pub mod error {
     use thiserror::Error;
 
     #[derive(Debug, Error)]
     pub enum WifiError {
+        #[error("Wifi-Ctrl error: {0}")]
+        WifiCtrl(#[from] wifi_ctrl::error::Error),
+
         #[error("Wi-Fi operation failed: {0}")]
         OperationFailed(String),
 
@@ -23,7 +27,24 @@ use crate::wifi::model::WifiNetwork;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WifiAuth {
-    // TODO
+    Open { ssid: String },
+    Psk { ssid: String, psk: String },
+}
+
+impl WifiAuth {
+    pub fn ssid(&self) -> Option<&str> {
+        match self {
+            Self::Open { ssid } => Some(ssid),
+            Self::Psk { ssid, .. } => Some(ssid),
+        }
+    }
+
+    pub fn psk(&self) -> Option<&str> {
+        match self {
+            Self::Open { .. } => None,
+            Self::Psk { psk, .. } => Some(psk),
+        }
+    }
 }
 
 /// Interface for managing Wi-Fi connectivity.
@@ -47,10 +68,7 @@ pub trait Wifi {
     /// ```
     async fn get_available(&self) -> WifiResult<Vec<WifiNetwork>>;
 
-    /// Connects to a Wi-Fi network identified by `wifi_uid`.
-    ///
-    /// If the network requires a passphrase, provide it via `passphrase`.
-    /// Open networks can be connected to with `None`.
+    /// Connects to a Wi-Fi network identified by `auth`.
     ///
     /// # Errors
     ///
@@ -62,13 +80,13 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult, WifiAuth};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.connect("wifi0", WifiAuth::ConnmanAgentAuth(Some("password".into()))).await?;
+    /// wifi.connect(WifiAuth::Open{ssid: "SomeWifi07".to_string()}).await?;
     /// # Ok(())
     /// # }
     /// ```
-    async fn connect(&self, wifi_uid: &str, auth: WifiAuth) -> WifiResult<()>;
+    async fn connect(&self, auth: WifiAuth) -> WifiResult<()>;
 
-    /// Disconnects from a Wi-Fi network identified by `wifi_uid`.
+    /// Disconnects from the curently connected a Wi-Fi network.
     ///
     /// # Errors
     ///
@@ -79,9 +97,9 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.disconnect("wifi0").await?;
+    /// wifi.disconnect().await?;
     /// # Ok(())
     /// # }
     /// ```
-    async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()>;
+    async fn disconnect(&self) -> WifiResult<()>;
 }

@@ -5,7 +5,7 @@ use crate::error::ApiError;
 use crate::job::{Job, JobInfo, RecorderSettings, create_job};
 use crate::state::AppState;
 use crate::wifi::{
-    Wifi, WifiAuth,
+    Wifi,
     model::{InterfaceMap, WifiConnectionPayload, WifiStatusResponse, linux_ip_address::IpOutput},
 };
 
@@ -132,9 +132,9 @@ async fn remove_recorder(
 }
 
 #[get("/api/wifi")]
-async fn wifi_status() -> Result<impl Responder, ApiError> {
-    let conn = todo!();
-    let wifi_networks = conn.get_available().await?;
+async fn wifi_status(state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
+    let wpa_wifi = state.wpa_wifi.lock().await;
+    let wifi_networks = wpa_wifi.get_available().await?;
 
     let interfaces = IpOutput::from_system().await?;
     let interface_map = InterfaceMap::from(interfaces);
@@ -145,20 +145,20 @@ async fn wifi_status() -> Result<impl Responder, ApiError> {
 }
 
 #[post("/api/wifi/connect")]
-async fn wifi_conn(payload: web::Json<WifiConnectionPayload>) -> Result<impl Responder, ApiError> {
-    let conn = todo!();
-
-    conn.connect(payload.uid(), todo!()).await?;
+async fn wifi_conn(
+    payload: web::Json<WifiConnectionPayload>,
+    state: web::Data<AppState>,
+) -> Result<impl Responder, ApiError> {
+    let wpa_wifi = state.wpa_wifi.lock().await;
+    wpa_wifi.connect(payload.clone().into()).await?;
 
     Ok(HttpResponse::Ok().body("Ok"))
 }
 
 #[post("/api/wifi/disconnect")]
-async fn wifi_disconn(
-    payload: web::Json<WifiConnectionPayload>,
-) -> Result<impl Responder, ApiError> {
-    let conn = todo!();
-    conn.disconnect(payload.uid()).await?;
+async fn wifi_disconn(state: web::Data<AppState>) -> Result<impl Responder, ApiError> {
+    let wpa_wifi = state.wpa_wifi.lock().await;
+    wpa_wifi.disconnect().await?;
 
     Ok(HttpResponse::Ok().body("Ok"))
 }
