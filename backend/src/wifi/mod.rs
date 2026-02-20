@@ -1,5 +1,5 @@
-pub mod wpa_supplicant;
 pub mod model;
+pub mod wpa_supplicant;
 
 pub mod error {
     use thiserror::Error;
@@ -27,7 +27,8 @@ use crate::wifi::model::WifiNetwork;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WifiAuth {
-    // TODO
+    Open { ssid: String },
+    Psk { ssid: String, psk: String },
 }
 
 /// Interface for managing Wi-Fi connectivity.
@@ -51,10 +52,7 @@ pub trait Wifi {
     /// ```
     async fn get_available(&self) -> WifiResult<Vec<WifiNetwork>>;
 
-    /// Connects to a Wi-Fi network identified by `wifi_uid`.
-    ///
-    /// If the network requires a passphrase, provide it via `passphrase`.
-    /// Open networks can be connected to with `None`.
+    /// Connects to a Wi-Fi network identified by `auth`.
     ///
     /// # Errors
     ///
@@ -66,13 +64,13 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult, WifiAuth};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.connect("wifi0", WifiAuth::ConnmanAgentAuth(Some("password".into()))).await?;
+    /// wifi.connect(WifiAuth::Open{ssid: "SomeWifi07"}).await?;
     /// # Ok(())
     /// # }
     /// ```
-    async fn connect(&self, wifi_uid: &str, auth: WifiAuth) -> WifiResult<()>;
+    async fn connect(&self, auth: WifiAuth) -> WifiResult<()>;
 
-    /// Disconnects from a Wi-Fi network identified by `wifi_uid`.
+    /// Disconnects from the curently connected a Wi-Fi network.
     ///
     /// # Errors
     ///
