@@ -11,9 +11,10 @@ use backend::state::*;
 
 #[actix_web::main]
 async fn main() -> Result<()> {
-    let port: u16 = 5004;
+    const PORT: u16 = 5004;
+    const WIFI_INTERFACE: &str = "wlan0";
 
-    let state: AppState = AppState::default();
+    let state: AppState = AppState::new(WIFI_INTERFACE).await?;
 
     println!("Starting Job Scheduler");
     spawn(job_scheduler(state.clone()));
