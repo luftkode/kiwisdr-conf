@@ -21,11 +21,16 @@ pub mod error {
 use crate::wifi::error::WifiResult;
 use crate::wifi::model::WifiNetwork;
 
-#[allow(async_fn_in_trait)] // only used with concrete types, never dyn
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WifiAuth {
+    // TODO
+}
+
 /// Interface for managing Wi-Fi connectivity.
 ///
 /// Implementors provide methods to list networks and manage connections.
 /// All operations are asynchronous.
+#[allow(async_fn_in_trait)] // only used with concrete types, never dyn
 pub trait Wifi {
     /// Returns a list of available Wi-Fi networks.
     ///
@@ -55,13 +60,13 @@ pub trait Wifi {
     /// # Examples
     ///
     /// ```
-    /// # use backend::wifi::{Wifi, error::WifiResult};
+    /// # use backend::wifi::{Wifi, error::WifiResult, WifiAuth};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    ///     wifi.connect("wifi0", Some("password")).await?;
-    ///     # Ok(())
+    /// wifi.connect("wifi0", WifiAuth::ConnmanAgentAuth(Some("password".into()))).await?;
+    /// # Ok(())
     /// # }
     /// ```
-    async fn connect(&self, wifi_uid: &str, passphrase: Option<&str>) -> WifiResult<()>;
+    async fn connect(&self, wifi_uid: &str, auth: WifiAuth) -> WifiResult<()>;
 
     /// Disconnects from a Wi-Fi network identified by `wifi_uid`.
     ///
@@ -74,8 +79,8 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    ///     wifi.disconnect("wifi0").await?;
-    ///     # Ok(())
+    /// wifi.disconnect("wifi0").await?;
+    /// # Ok(())
     /// # }
     /// ```
     async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()>;
