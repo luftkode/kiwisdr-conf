@@ -38,7 +38,7 @@ impl WifiAuth {
             Self::Psk { ssid, .. } => Some(ssid),
         }
     }
-    
+
     pub fn psk(&self) -> Option<&str> {
         match self {
             Self::Open { .. } => None,

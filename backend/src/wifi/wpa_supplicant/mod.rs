@@ -68,12 +68,12 @@ impl Wifi for WpaWifi {
             .map(WifiNetwork::from)
             .collect();
 
-        if let Ok(status) = self.requester.get_status().await {
-            if let Some(active_bssid) = status.get("bssid") {
-                for net in &mut networks {
-                    if net.has_bssid(active_bssid) {
-                        net.set_online();
-                    }
+        if let Ok(status) = self.requester.get_status().await
+            && let Some(active_bssid) = status.get("bssid")
+        {
+            for net in &mut networks {
+                if net.has_bssid(active_bssid) {
+                    net.set_online();
                 }
             }
         }
