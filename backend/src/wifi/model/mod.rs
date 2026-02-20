@@ -1,6 +1,6 @@
 pub mod linux_ip_address;
 
-use crate::wifi::error::WifiError;
+use crate::wifi::{WifiAuth, error::WifiError};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -20,7 +20,7 @@ pub struct WifiStatusResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct WifiConnectionPayload {
-    uid: String,
+    ssid: String,
     password: Option<String>,
 }
 
@@ -169,12 +169,26 @@ impl WifiFlag {
 }
 
 impl WifiConnectionPayload {
-    pub fn uid(&self) -> &str {
-        &self.uid
+    pub fn ssid(&self) -> &str {
+        &self.ssid
     }
 
     pub fn password(&self) -> Option<&str> {
         self.password.as_deref()
+    }
+}
+
+impl From<WifiConnectionPayload> for WifiAuth {
+    fn from(value: WifiConnectionPayload) -> Self {
+        match value.password() {
+            Some(password) => WifiAuth::Psk {
+                ssid: value.ssid().into(),
+                psk: password.into(),
+            },
+            None => WifiAuth::Open {
+                ssid: value.ssid().into(),
+            },
+        }
     }
 }
 
