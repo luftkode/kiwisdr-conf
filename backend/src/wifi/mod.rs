@@ -31,6 +31,22 @@ pub enum WifiAuth {
     Psk { ssid: String, psk: String },
 }
 
+impl WifiAuth {
+    pub fn ssid(&self) -> Option<&str> {
+        match self {
+            Self::Open { ssid } => Some(ssid),
+            Self::Psk { ssid, .. } => Some(ssid),
+        }
+    }
+    
+    pub fn psk(&self) -> Option<&str> {
+        match self {
+            Self::Open { .. } => None,
+            Self::Psk { psk, .. } => Some(psk),
+        }
+    }
+}
+
 /// Interface for managing Wi-Fi connectivity.
 ///
 /// Implementors provide methods to list networks and manage connections.
