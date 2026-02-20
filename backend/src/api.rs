@@ -5,7 +5,7 @@ use crate::error::ApiError;
 use crate::job::{Job, JobInfo, RecorderSettings, create_job};
 use crate::state::AppState;
 use crate::wifi::{
-    Wifi, WifiAuth,
+    Wifi,
     model::{InterfaceMap, WifiConnectionPayload, WifiStatusResponse, linux_ip_address::IpOutput},
 };
 
