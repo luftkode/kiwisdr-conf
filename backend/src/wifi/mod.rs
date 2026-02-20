@@ -1,4 +1,5 @@
 pub mod connman;
+pub mod wpa_supplicant;
 pub mod model;
 
 pub mod error {
