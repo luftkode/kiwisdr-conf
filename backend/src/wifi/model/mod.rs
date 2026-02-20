@@ -3,12 +3,13 @@ pub mod linux_ip_address;
 use crate::wifi::error::WifiError;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt::{self, Display},
     io,
     net::{Ipv4Addr, Ipv6Addr},
     ops::Deref,
 };
+use wifi_ctrl::sta;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -27,12 +28,36 @@ pub struct WifiConnectionPayload {
 #[serde(transparent)]
 pub struct InterfaceMap(pub BTreeMap<InterfaceName, NetworkInterface>);
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum WifiFlag {
+    Wpa,
+    Wpa2,
+    Wpa3,
+    Psk,  // Pre-Shared Key (Home/Personal)
+    Eap,  // Enterprise (Login/Identity)
+    Ccmp, // AES encryption
+    Tkip, // Legacy encryption
+    Ess,  // Infrastructure mode (Access Point)
+    Ibss, // Ad-hoc mode
+    Wps,  // Wi-Fi Protected Setup
+    Other(String),
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub enum WifiBand {
+    Band2G4Hz,
+    Band5Ghz,
+    Band6Ghz,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct WifiNetwork {
     ssid: Option<String>,
-    uid: String,
+    bssid: Option<String>,
     state: WifiStatus,
-    strength: Option<u8>,
+    strength: Option<i32>,
+    band: Option<WifiBand>,
+    flags: BTreeSet<WifiFlag>,
     interface: Option<InterfaceName>,
 }
 
@@ -78,6 +103,69 @@ pub struct Ipv6Connection {
     address: Ipv6Addr,
     prefix: u8,
     gateway: Gateway<Ipv6Addr>,
+}
+
+impl WifiBand {
+    pub fn from_freq(freq: i32) -> Option<Self> {
+        match freq {
+            2412..=2484 => Some(WifiBand::Band2G4Hz),
+            5160..=5885 => Some(WifiBand::Band5Ghz),
+            5925..=7125 => Some(WifiBand::Band6Ghz),
+            _ => None,
+        }
+    }
+}
+
+impl From<sta::ScanResult> for WifiNetwork {
+    fn from(scan: sta::ScanResult) -> Self {
+        Self {
+            ssid: Some(scan.name.clone()),
+            bssid: Some(scan.mac.clone()),
+            state: WifiStatus::Idle,
+            strength: Some(scan.signal as i32),
+            band: match scan.frequency.parse().ok() {
+                Some(freq) => WifiBand::from_freq(freq),
+                None => None,
+            },
+            flags: WifiFlag::parse_wifi_flags(&scan.flags),
+            interface: None,
+        }
+    }
+}
+
+impl WifiFlag {
+    fn parse_wifi_flags(raw_flags: &str) -> BTreeSet<Self> {
+        let mut flags = BTreeSet::new();
+
+        // Clean the string (remove brackets and split by dash/space)
+        let cleaned = raw_flags.replace('[', "").replace(']', " ");
+        let parts: Vec<&str> = cleaned
+            .split_whitespace()
+            .flat_map(|s| s.split('-'))
+            .collect();
+
+        for part in parts {
+            match part.to_uppercase().as_str() {
+                "WPA" => flags.insert(WifiFlag::Wpa),
+                "WPA2" => flags.insert(WifiFlag::Wpa2),
+                "WPA3" => flags.insert(WifiFlag::Wpa3),
+                "PSK" => flags.insert(WifiFlag::Psk),
+                "EAP" => flags.insert(WifiFlag::Eap),
+                "CCMP" => flags.insert(WifiFlag::Ccmp),
+                "TKIP" => flags.insert(WifiFlag::Tkip),
+                "ESS" => flags.insert(WifiFlag::Ess),
+                "IBSS" => flags.insert(WifiFlag::Ibss),
+                "WPS" => flags.insert(WifiFlag::Wps),
+                _ => {
+                    if !part.is_empty() {
+                        flags.insert(WifiFlag::Other(part.to_string()));
+                    }
+                    true
+                }
+            };
+        }
+        flags
+    }
 }
 
 impl WifiConnectionPayload {
@@ -167,16 +255,20 @@ impl NetworkInterface {
 impl WifiNetwork {
     pub fn new(
         ssid: Option<String>,
-        uid: String,
+        bssid: Option<String>,
         state: WifiStatus,
-        strength: Option<u8>,
+        strength: Option<i32>,
+        band: Option<WifiBand>,
+        flags: BTreeSet<WifiFlag>,
         interface: Option<InterfaceName>,
     ) -> Self {
         Self {
             ssid,
-            uid,
+            bssid,
             state,
             strength,
+            band,
+            flags,
             interface,
         }
     }
@@ -185,15 +277,15 @@ impl WifiNetwork {
         self.ssid.as_deref()
     }
 
-    pub fn uid(&self) -> &str {
-        &self.uid
+    pub fn bssid(&self) -> Option<&str> {
+        self.bssid.as_deref()
     }
 
     pub fn state(&self) -> WifiStatus {
         self.state
     }
 
-    pub fn strength(&self) -> Option<u8> {
+    pub fn strength(&self) -> Option<i32> {
         self.strength
     }
 
