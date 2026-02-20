@@ -292,6 +292,16 @@ impl WifiNetwork {
     pub fn interface(&self) -> Option<&InterfaceName> {
         self.interface.as_ref()
     }
+
+    // Allows the service to mark a network as active during the scan loop
+    pub fn set_online(&mut self) {
+        self.state = WifiStatus::Online;
+    }
+
+    // Helper for the BSSID check
+    pub fn has_bssid(&self, bssid: &str) -> bool {
+        self.bssid.as_deref() == Some(bssid)
+    }
 }
 
 impl Ipv4Connection {
