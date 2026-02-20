@@ -6,6 +6,9 @@ pub mod error {
 
     #[derive(Debug, Error)]
     pub enum WifiError {
+        #[error("Wifi-Ctrl error: {0}")]
+        WifiCtrl(#[from] wifi_ctrl::error::Error),
+
         #[error("Wi-Fi operation failed: {0}")]
         OperationFailed(String),
 
@@ -80,9 +83,9 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.disconnect("wifi0").await?;
+    /// wifi.disconnect().await?;
     /// # Ok(())
     /// # }
     /// ```
-    async fn disconnect(&self, wifi_uid: &str) -> WifiResult<()>;
+    async fn disconnect(&self) -> WifiResult<()>;
 }
