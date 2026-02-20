@@ -14,18 +14,21 @@ async fn main() -> Result<()> {
     const PORT: u16 = 5004;
     const WIFI_INTERFACE: &str = "wlan0";
 
-    let state: AppState = AppState::new(WIFI_INTERFACE).await?;
+    println!("Starting WpaWifi");
+    let state: AppState = AppState::new(WIFI_INTERFACE)
+        .await
+        .expect("Falied to start WpaWifi");
 
     println!("Starting Job Scheduler");
     spawn(job_scheduler(state.clone()));
 
-    println!("Starting server on port {}", port);
+    println!("Starting server on port {}", PORT);
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(state.clone()))
             .configure(api::init_routes)
     })
-    .bind(("0.0.0.0", port))?
+    .bind(("0.0.0.0", PORT))?
     .run()
     .await
 }

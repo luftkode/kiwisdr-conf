@@ -80,7 +80,7 @@ pub trait Wifi {
     /// ```
     /// # use backend::wifi::{Wifi, error::WifiResult, WifiAuth};
     /// # async fn example(wifi: impl Wifi) -> WifiResult<()> {
-    /// wifi.connect(WifiAuth::Open{ssid: "SomeWifi07"}).await?;
+    /// wifi.connect(WifiAuth::Open{ssid: "SomeWifi07".to_string()}).await?;
     /// # Ok(())
     /// # }
     /// ```
