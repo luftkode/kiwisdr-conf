@@ -7,15 +7,7 @@ pub type SharedJob = Arc<Mutex<Job>>;
 pub type JobMap = HashMap<u32, SharedJob>;
 pub type SharedJobMap = Arc<Mutex<JobMap>>;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct AppState {
     pub jobs: SharedJobMap,
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self {
-            jobs: Arc::new(Mutex::new(HashMap::new())),
-        }
-    }
 }

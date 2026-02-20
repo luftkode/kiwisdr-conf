@@ -47,8 +47,6 @@ async fn job_scheduler(state: AppState) {
             }
         }
 
-        println!("Jobs to start: {:?}", jobs_to_start);
-
         for job in jobs_to_start {
             match Job::start(job).await {
                 Ok(..) => {}
