@@ -22,7 +22,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 use zbus::{Connection, interface};
-use zvariant::OwnedValue;
+use zvariant::{ObjectPath, OwnedValue};
 
 use crate::wifi::connman::error::Result;
 
@@ -51,6 +51,7 @@ impl WifiSecrets {
     /// * `service` - Full ConnMan service object path
     /// * `passphrase` - WPA/WPA2 passphrase
     pub fn insert(&mut self, service: String, passphrase: String) {
+        println!("Password has ben inserted: {}, service {}", passphrase, service);
         self.map.insert(service, passphrase);
     }
 
@@ -59,7 +60,9 @@ impl WifiSecrets {
     /// This operation is **destructive**.
     /// Subsequent calls return `None`.
     pub fn take(&mut self, service: &str) -> Option<String> {
-        self.map.remove(service)
+        let passphrase = self.map.remove(service);
+        println!("Password has ben removed: {}, service {}", passphrase.clone().unwrap_or_default(), service);
+        passphrase
     }
 
     /// Returns `true` if a secret exists for `service`.
@@ -99,9 +102,14 @@ impl ConnManAgent {
         let proxy = zbus::Proxy::new(conn, "net.connman", "/", "net.connman.Manager").await?;
 
         proxy
-            .call::<&str, (&str,), ()>("RegisterAgent", &("/net/connman/agent",))
+            .call::<&str, (&ObjectPath,), ()>(
+                "RegisterAgent",
+                &(&ObjectPath::try_from("/net/connman/agent").unwrap(),),
+            )
             .await?;
 
+        
+        println!("Agent registered");
         Ok(())
     }
 }

@@ -118,11 +118,13 @@ pub async fn technologies(conn: &Connection) -> Result<Vec<(OwnedObjectPath, DBu
 /// - D-Bus fails
 /// - ConnMan rejects the request
 pub async fn service_connect(conn: &Connection, service_path: &OwnedObjectPath) -> Result<()> {
+    println!("service_connect({}) Start", service_path);
     let proxy = service_proxy(conn, service_path).await?;
 
     // Connect has no arguments and no return value
     proxy.call::<&str, (), ()>("Connect", &()).await?;
 
+    println!("service_connect({}) End", service_path);
     Ok(())
 }
 
